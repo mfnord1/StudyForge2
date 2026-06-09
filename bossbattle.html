@@ -474,7 +474,7 @@ async function startBoss(idx) {
 async function fetchQuestions(boss) {
   const prompt = `Du er en spiludvikler der laver et quiz-spil om ${boss.topic}
 
-Lav 20 multiple choice spørgsmål til en dansk gymnasieelev på C-niveau.
+Lav 8 multiple choice spørgsmål til en dansk gymnasieelev på C-niveau.
 Bland nemme, mellemsvære og svære spørgsmål.
 Spørgsmål skal teste forståelse — ikke bare hukommelse.
 Inkluder gerne "hvad ville X teoretiker sige om..." og "hvad er forskellen på...".
@@ -490,9 +490,27 @@ RETURNER KUN JSON:
   const data = await res.json();
   if (!res.ok) throw new Error(data.error?.message || JSON.stringify(data));
   const raw = (data.content || []).map(i => i.text || '').join('');
-  const s = raw.indexOf('{'), e = raw.lastIndexOf('}');
-  if (s === -1) throw new Error('Ingen JSON i svar');
-  return JSON.parse(raw.slice(s, e + 1)).questions;
+  const s = raw.indexOf('[');
+  const e = raw.lastIndexOf('}');
+  if (s === -1 || e === -1) throw new Error('Ingen JSON i svar');
+  // Extract just the questions array and fix truncated JSON
+  let jsonStr = raw.slice(s, e + 1) + ']';
+  // Remove any trailing incomplete question object
+  const lastComplete = jsonStr.lastIndexOf('},');
+  if (lastComplete > 0) jsonStr = jsonStr.slice(0, lastComplete + 1) + ']';
+  try {
+    return JSON.parse(jsonStr);
+  } catch(e2) {
+    // Last resort: find complete questions manually
+    const questions = [];
+    const regex = /\{[^{}]*"question"[^{}]*"options"[^{}]*"correct"[^{}]*"explanation"[^{}]*\}/gs;
+    let match;
+    while ((match = regex.exec(raw)) !== null) {
+      try { questions.push(JSON.parse(match[0])); } catch(e3) {}
+    }
+    if (questions.length === 0) throw new Error('Kunne ikke parse spørgsmål. Prøv igen.');
+    return questions;
+  }
 }
 
 function setupBossUI() {
