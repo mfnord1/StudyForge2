@@ -108,12 +108,14 @@ const server = http.createServer(async (req, res) => {
 
   const url = req.url.split('?')[0];
 
-  // ── Static HTML ──
+  // ── Static files (.html, .js, .css) ──
   if (req.method === 'GET') {
     const fileName = url === '/' ? 'index.html' : url.replace(/^\//, '');
     const filePath = path.join(__dirname, fileName);
-    if (fileName.endsWith('.html') && fs.existsSync(filePath)) {
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    const ext = require('path').extname(fileName);
+    const mimeMap = { '.html':'text/html', '.js':'application/javascript', '.css':'text/css' };
+    if (mimeMap[ext] && fs.existsSync(filePath)) {
+      res.writeHead(200, { 'Content-Type': mimeMap[ext] + '; charset=utf-8' });
       res.end(fs.readFileSync(filePath));
       return;
     }
