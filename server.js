@@ -48,11 +48,16 @@ const server = http.createServer((req, res) => {
 
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
-  // ── index.html ──
-  if (req.method === 'GET' && (req.url === '/' || req.url === '/index.html')) {
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(fs.readFileSync(path.join(__dirname, 'index.html')));
-    return;
+  // ── Serve HTML files ──
+  if (req.method === 'GET') {
+    const urlPath = req.url.split('?')[0];
+    const fileName = urlPath === '/' ? 'index.html' : urlPath.replace(/^\//, '');
+    const filePath = path.join(__dirname, fileName);
+    if (fileName.endsWith('.html') && fs.existsSync(filePath)) {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(fs.readFileSync(filePath));
+      return;
+    }
   }
 
   // ── Usage stats (simple admin endpoint) ──
