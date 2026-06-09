@@ -168,6 +168,7 @@ textarea:focus { border-color:var(--accent); }
 .timer-label { font-size:12px; color:var(--muted); font-family:'DM Mono',monospace; }
 .exam-score-badge { font-family:'DM Mono',monospace; font-size:13px; color:var(--muted); }
 </style>
+<script src="/auth.js"></script>
 </head>
 <body>
 
@@ -601,7 +602,7 @@ function quizPick(idx) {
     else if(i===idx) b.classList.add('wrong');
   }
   const ok = idx===q.correct;
-  if(ok) QZ.sc++;
+  if(ok) { QZ.sc++; SF.earnXP("quiz_correct"); }
   QZ.ans.push({question:q.question,chosen:idx,correct:q.correct,ok,options:q.options});
   document.getElementById('qexpl').classList.add('show');
   document.getElementById('quiz-next').disabled=false;
@@ -614,7 +615,7 @@ function quizNext() {
   else renderQuizQ();
 }
 
-function showQuizResult() {
+function showQuizResult() { SF.earnXP("quiz_complete");
   document.getElementById('quiz-playing').style.display='none';
   const tot=QZ.qs.length, pct=Math.round((QZ.sc/tot)*100);
   const v = pct===100?'🏆 Perfekt!':pct>=80?'🌟 Fremragende':pct>=60?'👍 Godt klaret':pct>=40?'📚 Næsten der':'💪 Bliv ved';
@@ -700,7 +701,7 @@ function flipCard() {
 function fcAnswer(remembered) {
   const idx = FC.queue.shift();
   if (remembered) {
-    FC.done++;
+    FC.done++; SF.earnXP("flashcard_correct");
   } else {
     // Put back near the end with some randomness
     const insertAt = Math.min(FC.queue.length, 3 + Math.floor(Math.random()*3));
@@ -709,7 +710,7 @@ function fcAnswer(remembered) {
   renderFC();
 }
 
-function showFCResult() {
+function showFCResult() { SF.earnXP("flashcard_complete");
   document.getElementById('fc-playing').style.display='none';
   document.getElementById('fc-result').style.display='block';
   document.getElementById('fc-result').innerHTML=`
@@ -802,7 +803,7 @@ async function evaluateFeynman() {
         <h4>⚠ Mangler / fejl</h4><p>${fb.gaps||'Ingen større fejl!'}</p>
         <h4>📖 Korrekt forklaring</h4><p>${fb.correction}</p>
       </div>`;
-    document.getElementById('feynman-feedback').classList.add('show');
+    document.getElementById('feynman-feedback').classList.add('show'); SF.earnXP('feynman_complete');
     const btns = document.getElementById('feynman-btns');
     btns.style.display='flex';
     if(FY.cur>=FY.concepts.length-1) btns.querySelector('button:first-child').textContent='✓ Alle begreber gennemgået';
@@ -843,7 +844,7 @@ async function makeResume() {
           <h4>${s.heading}</h4>
           <ul>${s.points.map(p=>`<li>${p}</li>`).join('')}</ul>
         </div>`).join('')}`;
-    out.classList.add('show');
+    out.classList.add('show'); SF.earnXP('mindmap_generate'); SF.earnXP('resume_generate');
   } catch(e) {
     document.getElementById('resume-spinner').classList.remove('on');
     document.getElementById('resume-setup').style.display='block';
@@ -949,7 +950,7 @@ function examPick(idx) {
     else if(i===idx) b.classList.add('wrong');
   }
   const ok = idx===q.correct;
-  if(ok) EX.sc++;
+  if(ok) { EX.sc++; SF.earnXP('exam_correct'); }
   EX.ans.push({question:q.question,chosen:idx,correct:q.correct,ok,options:q.options,timedOut:idx===-1});
   document.getElementById('exam-live').textContent=EX.sc;
   // Auto-advance after short pause
@@ -960,7 +961,7 @@ function examPick(idx) {
   }, idx===-1?800:1200);
 }
 
-function showExamResult() {
+function showExamResult() { SF.earnXP("exam_complete");
   document.getElementById('exam-playing').style.display='none';
   const tot=EX.qs.length, pct=Math.round((EX.sc/tot)*100);
   const v=pct===100?'🏆 Perfekt eksamen!':pct>=80?'🌟 Bestået med glans':pct>=60?'👍 Bestået':pct>=40?'📚 Næsten nok':'💪 Mere læsning nødvendig';

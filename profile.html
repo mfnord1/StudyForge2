@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Profil — StudyForge</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="/auth.js"></script>
+<style>
+:root { --bg:#0a0a0a; --surface:#141414; --surface2:#1c1c1c; --border:#262626; --accent:#e8ff47; --text:#f0ede8; --muted:#5a5a5a; --correct:#4ade80; --radius:14px; }
+* { box-sizing:border-box; margin:0; padding:0; }
+body { background:var(--bg); color:var(--text); font-family:'Syne',sans-serif; min-height:100vh; }
+body::before { content:''; position:fixed; inset:0; background-image:linear-gradient(rgba(232,255,71,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(232,255,71,0.025) 1px,transparent 1px); background-size:64px 64px; pointer-events:none; z-index:0; }
+.container { max-width:720px; margin:0 auto; padding:40px 24px 80px; position:relative; z-index:1; }
+.profile-hero { background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius); padding:40px; text-align:center; margin-bottom:24px; position:relative; overflow:hidden; }
+.profile-hero::before { content:''; position:absolute; top:-60px; left:50%; transform:translateX(-50%); width:300px; height:300px; border-radius:50%; background:radial-gradient(circle, rgba(232,255,71,0.07) 0%, transparent 65%); pointer-events:none; }
+.profile-big-avatar { width:80px; height:80px; border-radius:50%; background:var(--accent); color:#000; display:flex; align-items:center; justify-content:center; font-size:36px; font-weight:800; margin:0 auto 16px; }
+.profile-username { font-size:28px; font-weight:800; letter-spacing:-.02em; margin-bottom:6px; }
+.profile-level { font-size:15px; color:var(--muted); margin-bottom:24px; }
+.xp-bar-big { height:10px; background:var(--border); border-radius:99px; overflow:hidden; margin-bottom:8px; max-width:320px; margin:0 auto 8px; }
+.xp-fill-big { height:100%; background:var(--accent); border-radius:99px; transition:width .6s ease; }
+.xp-label-big { font-size:12px; color:var(--muted); font-family:'DM Mono',monospace; }
+.stats-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:24px; }
+@media(min-width:500px) { .stats-grid { grid-template-columns:repeat(4,1fr); } }
+.stat-card { background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius); padding:20px; text-align:center; }
+.stat-num { font-size:28px; font-weight:800; color:var(--accent); font-family:'Instrument Serif',serif; }
+.stat-label { font-size:11px; color:var(--muted); font-family:'DM Mono',monospace; margin-top:4px; }
+.section-title { font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); font-family:'DM Mono',monospace; margin-bottom:14px; margin-top:28px; }
+.level-list { display:flex; flex-direction:column; gap:8px; }
+.level-row { display:flex; align-items:center; gap:14px; padding:14px 18px; background:var(--surface); border:1.5px solid var(--border); border-radius:10px; }
+.level-row.current { border-color:rgba(232,255,71,.4); background:rgba(232,255,71,.04); }
+.level-row.done { opacity:.5; }
+.level-emoji { font-size:20px; width:28px; text-align:center; flex-shrink:0; }
+.level-info { flex:1; }
+.level-name { font-size:14px; font-weight:600; }
+.level-xp { font-size:11px; color:var(--muted); font-family:'DM Mono',monospace; }
+.level-check { font-size:16px; }
+.boss-badges { display:flex; gap:12px; flex-wrap:wrap; }
+.boss-badge { padding:10px 16px; background:var(--surface); border:1.5px solid var(--border); border-radius:10px; font-size:22px; display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; }
+.boss-badge.cleared { border-color:rgba(74,222,128,.4); background:rgba(74,222,128,.06); color:var(--correct); }
+.guest-msg { text-align:center; padding:80px 20px; }
+.guest-msg h2 { font-size:24px; font-weight:800; margin-bottom:12px; }
+.guest-msg p { color:var(--muted); margin-bottom:24px; }
+.login-btn { padding:14px 28px; background:var(--accent); color:#000; border:none; border-radius:var(--radius); font-family:'Syne',sans-serif; font-size:15px; font-weight:700; cursor:pointer; }
+</style>
+</head>
+<body>
+<div class="container" id="main">
+  <div class="guest-msg" id="guest-view">
+    <h2>👤 Din profil</h2>
+    <p>Log ind for at se dit fremskridt, XP og badges.</p>
+    <button class="login-btn" onclick="SF.openModal()">Log ind / Opret konto</button>
+  </div>
+  <div id="profile-view" style="display:none"></div>
+</div>
+
+<script>
+async function loadProfile() {
+  const token = SF.getToken();
+  if (!token) { document.getElementById('guest-view').style.display='block'; return; }
+
+  const res = await fetch('/auth/me', { headers: SF.authHeaders() });
+  if (!res.ok) { SF.logout(); return; }
+  const data = await res.json();
+  const { username, xp, level, stats } = data;
+
+  document.getElementById('guest-view').style.display = 'none';
+  const pv = document.getElementById('profile-view');
+  pv.style.display = 'block';
+
+  const LEVELS = SF.LEVELS;
+  const prevXP = LEVELS[level.level - 2]?.xpRequired || 0;
+  const nextXP = level.nextXP || (xp + 1);
+  const pct = Math.min(100, Math.round(((xp - prevXP) / (nextXP - prevXP)) * 100));
+
+  const BOSSES = [{id:0,name:'Identitetsmesteren',emoji:'🧠'},{id:1,name:'Demokratikongen',emoji:'🏛️'},{id:2,name:'Økonomikolossen',emoji:'💰'}];
+
+  pv.innerHTML = `
+    <div class="profile-hero">
+      <div class="profile-big-avatar">${username[0].toUpperCase()}</div>
+      <div class="profile-username">${username}</div>
+      <div class="profile-level">${level.emoji} Niveau ${level.level} — ${level.name}</div>
+      <div class="xp-bar-big"><div class="xp-fill-big" style="width:${pct}%"></div></div>
+      <div class="xp-label-big">${xp} ${level.nextXP ? `/ ${nextXP} XP til næste niveau` : 'XP — MAX LEVEL'}</div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-num">${xp}</div><div class="stat-label">Total XP</div></div>
+      <div class="stat-card"><div class="stat-num">${stats.totalCorrect||0}</div><div class="stat-label">Korrekte svar</div></div>
+      <div class="stat-card"><div class="stat-num">${stats.quizzes||0}</div><div class="stat-label">Quizzer</div></div>
+      <div class="stat-card"><div class="stat-num">${stats.bosses||0}</div><div class="stat-label">Bosser slået</div></div>
+    </div>
+
+    <div class="section-title">Boss Badges</div>
+    <div class="boss-badges">
+      ${BOSSES.map(b => {
+        const cleared = (stats.bossesCleared||[]).includes(b.id);
+        return `<div class="boss-badge ${cleared?'cleared':''}">
+          ${b.emoji} ${b.name} ${cleared ? '✓' : '🔒'}
+        </div>`;
+      }).join('')}
+    </div>
+
+    <div class="section-title">Level-oversigt</div>
+    <div class="level-list">
+      ${LEVELS.map(l => {
+        const done = xp >= l.xpRequired && l.level < level.level;
+        const current = l.level === level.level;
+        return `<div class="level-row ${current?'current':done?'done':''}">
+          <div class="level-emoji">${l.emoji}</div>
+          <div class="level-info">
+            <div class="level-name">Niveau ${l.level}: ${l.name}</div>
+            <div class="level-xp">${l.xpRequired} XP krævet</div>
+          </div>
+          <div class="level-check">${current ? '⭐ Nu' : done ? '✓' : ''}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(loadProfile, 100); // wait for auth.js HUD to init
+});
+</script>
+</body>
+</html>
