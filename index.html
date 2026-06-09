@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>StudyForge</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a0a; --surface: #141414; --surface2: #1c1c1c;
+  --border: #262626; --accent: #e8ff47; --text: #f0ede8; --muted: #5a5a5a;
+  --correct: #4ade80; --wrong: #f87171; --radius: 14px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; min-height: 100vh; }
+body::before { content:''; position:fixed; inset:0; background-image: linear-gradient(rgba(232,255,71,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(232,255,71,0.025) 1px,transparent 1px); background-size:64px 64px; pointer-events:none; z-index:0; }
+
+/* ── SHARED ── */
+.page { display:none; min-height:100vh; position:relative; z-index:1; }
+.page.active { display:block; }
+.container { max-width:960px; margin:0 auto; padding:0 28px; }
+.btn-primary { display:flex; align-items:center; justify-content:center; gap:10px; width:100%; padding:17px 32px; background:var(--accent); color:#000; border:none; border-radius:var(--radius); font-family:'Syne',sans-serif; font-size:15px; font-weight:700; cursor:pointer; transition:transform .15s,opacity .15s; }
+.btn-primary:hover { opacity:.88; transform:translateY(-1px); }
+.btn-primary:disabled { opacity:.35; cursor:not-allowed; transform:none; }
+.btn-back { display:inline-flex; align-items:center; gap:8px; padding:10px 20px; background:var(--surface2); color:var(--text); border:1.5px solid var(--border); border-radius:var(--radius); font-family:'Syne',sans-serif; font-size:14px; font-weight:600; cursor:pointer; transition:border-color .2s; }
+.btn-back:hover { border-color:var(--accent); }
+.error-box { background:rgba(248,113,113,.08); border:1px solid rgba(248,113,113,.3); border-radius:10px; padding:14px 18px; font-size:13px; color:var(--wrong); line-height:1.6; margin-top:14px; display:none; font-family:'DM Mono',monospace; white-space:pre-wrap; }
+.error-box.show { display:block; }
+.upload-zone { border:1.5px dashed var(--border); border-radius:var(--radius); padding:52px 36px; text-align:center; cursor:pointer; transition:border-color .2s,background .2s; background:var(--surface); }
+.upload-zone:hover,.upload-zone.drag { border-color:var(--accent); background:rgba(232,255,71,.04); }
+.upload-zone h3 { font-size:18px; font-weight:600; margin-bottom:6px; }
+.upload-zone p { color:var(--muted); font-size:14px; margin-bottom:16px; }
+.fmt-tags { display:flex; gap:6px; justify-content:center; }
+.fmt-tag { font-family:'DM Mono',monospace; font-size:11px; padding:3px 10px; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--muted); }
+.file-pill { display:none; align-items:center; gap:12px; padding:12px 16px; background:rgba(232,255,71,.06); border:1px solid rgba(232,255,71,.2); border-radius:10px; margin-top:10px; font-size:13px; }
+.file-pill.show { display:flex; }
+.file-pill .fp-remove { margin-left:auto; cursor:pointer; color:var(--muted); font-size:18px; }
+.file-pill .fp-remove:hover { color:var(--wrong); }
+.divider { display:flex; align-items:center; gap:14px; margin:20px 0; color:var(--muted); font-size:12px; letter-spacing:.1em; text-transform:uppercase; font-family:'DM Mono',monospace; }
+.divider::before,.divider::after { content:''; flex:1; height:1px; background:var(--border); }
+textarea { width:100%; background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius); padding:18px; color:var(--text); font-family:'DM Mono',monospace; font-size:13px; line-height:1.7; resize:vertical; min-height:140px; outline:none; transition:border-color .2s; }
+textarea::placeholder { color:var(--muted); }
+textarea:focus { border-color:var(--accent); }
+.cfg { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:18px 0; }
+.cfg label { display:block; font-size:11px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:7px; font-family:'DM Mono',monospace; }
+.cfg select { width:100%; background:var(--surface); border:1.5px solid var(--border); border-radius:10px; padding:12px 16px; color:var(--text); font-family:'Syne',sans-serif; font-size:14px; outline:none; cursor:pointer; appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%235a5a5a' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 14px center; transition:border-color .2s; }
+.cfg select:focus { border-color:var(--accent); }
+.spinner-wrap { display:none; flex-direction:column; align-items:center; gap:20px; padding:70px 0; text-align:center; }
+.spinner-wrap.on { display:flex; }
+.spinner { width:44px; height:44px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .75s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.spin-label { font-size:15px; font-weight:600; }
+.spin-sub { font-size:13px; color:var(--muted); font-family:'DM Mono',monospace; }
+
+/* ── HOME ── */
+#home { padding-bottom:80px; }
+.home-header { padding:56px 0 64px; }
+.home-tag { font-family:'DM Mono',monospace; font-size:11px; color:var(--accent); letter-spacing:.18em; text-transform:uppercase; margin-bottom:16px; }
+.home-title { font-size:clamp(42px,6vw,72px); font-weight:800; line-height:1; letter-spacing:-.03em; margin-bottom:20px; }
+.home-title em { font-family:'Instrument Serif',serif; font-style:italic; font-weight:400; color:var(--accent); }
+.home-sub { font-size:17px; color:var(--muted); font-weight:400; max-width:520px; line-height:1.6; }
+.tools-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px; }
+.tool-card { background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius); padding:28px; cursor:pointer; transition:border-color .2s,transform .15s,background .2s; }
+.tool-card:hover { border-color:var(--accent); transform:translateY(-2px); background:rgba(232,255,71,.03); }
+.tool-icon { font-size:28px; margin-bottom:16px; }
+.tool-name { font-size:18px; font-weight:700; letter-spacing:-.01em; margin-bottom:8px; }
+.tool-desc { font-size:14px; color:var(--muted); line-height:1.55; font-weight:400; margin-bottom:18px; }
+.tool-tag { font-family:'DM Mono',monospace; font-size:11px; padding:4px 10px; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--muted); display:inline-block; }
+
+/* ── TOOL HEADER ── */
+.tool-header { padding:40px 0 32px; display:flex; align-items:center; gap:20px; border-bottom:1px solid var(--border); margin-bottom:44px; }
+.tool-header-text h2 { font-size:28px; font-weight:800; letter-spacing:-.02em; }
+.tool-header-text p { font-size:14px; color:var(--muted); margin-top:4px; font-weight:400; }
+
+/* ── QUIZ ── */
+.progress-bar { height:3px; background:var(--border); border-radius:99px; margin-bottom:36px; overflow:hidden; }
+.progress-fill { height:100%; background:var(--accent); border-radius:99px; transition:width .4s ease; }
+.q-meta { font-family:'DM Mono',monospace; font-size:12px; color:var(--muted); margin-bottom:8px; }
+.q-card { background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius); padding:32px; margin-bottom:20px; }
+.q-text { font-size:19px; font-weight:600; line-height:1.4; margin-bottom:24px; }
+.options { display:flex; flex-direction:column; gap:9px; }
+.option { display:flex; align-items:center; gap:12px; padding:13px 16px; background:var(--surface2); border:1.5px solid var(--border); border-radius:10px; cursor:pointer; text-align:left; width:100%; color:var(--text); font-family:'Syne',sans-serif; font-size:14px; font-weight:500; transition:border-color .12s,background .12s; }
+.option:hover:not(:disabled) { border-color:var(--accent); background:rgba(232,255,71,.05); }
+.option:disabled { cursor:default; }
+.option.correct { border-color:var(--correct); background:rgba(74,222,128,.08); color:var(--correct); }
+.option.wrong { border-color:var(--wrong); background:rgba(248,113,113,.08); color:var(--wrong); }
+.opt-letter { width:26px; height:26px; flex-shrink:0; border-radius:6px; background:var(--bg); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-family:'DM Mono',monospace; font-size:12px; }
+.option.correct .opt-letter { background:var(--correct); border-color:var(--correct); color:#000; }
+.option.wrong .opt-letter { background:var(--wrong); border-color:var(--wrong); color:#000; }
+.expl { margin-top:18px; padding:14px 18px; background:rgba(232,255,71,.06); border-left:3px solid var(--accent); border-radius:0 8px 8px 0; font-size:13px; line-height:1.6; display:none; }
+.expl.show { display:block; }
+.q-footer { display:flex; align-items:center; justify-content:space-between; margin-top:20px; }
+.btn-next { padding:12px 28px; font-size:14px; font-weight:700; background:var(--accent); color:#000; border:none; border-radius:10px; cursor:pointer; transition:opacity .15s; }
+.btn-next:disabled { opacity:.35; cursor:not-allowed; }
+
+/* ── RESULT ── */
+.result-hero { text-align:center; padding:52px 36px; background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius); margin-bottom:28px; }
+.score-big { font-size:80px; font-weight:800; line-height:1; color:var(--accent); font-family:'Instrument Serif',serif; margin-bottom:6px; }
+.score-sub { font-size:13px; color:var(--muted); margin-bottom:18px; font-family:'DM Mono',monospace; }
+.verdict { font-size:22px; font-weight:700; }
+.result-btns { display:flex; gap:10px; justify-content:center; margin-top:24px; flex-wrap:wrap; }
+.rev-title { font-size:11px; color:var(--muted); font-family:'DM Mono',monospace; text-transform:uppercase; letter-spacing:.1em; margin:28px 0 14px; }
+.rev-item { background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius); padding:16px 20px; margin-bottom:10px; }
+.rev-item.ok { border-color:rgba(74,222,128,.3); }
+.rev-item.no { border-color:rgba(248,113,113,.2); }
+.rev-q { font-size:14px; font-weight:600; margin-bottom:6px; line-height:1.4; }
+.rev-ans { font-size:12px; color:var(--muted); font-family:'DM Mono',monospace; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.badge { padding:3px 9px; border-radius:4px; font-size:11px; }
+.badge.ok { background:rgba(74,222,128,.15); color:var(--correct); }
+.badge.no { background:rgba(248,113,113,.12); color:var(--wrong); }
+
+/* ── FLASHCARDS ── */
+.fc-progress { text-align:center; font-family:'DM Mono',monospace; font-size:12px; color:var(--muted); margin-bottom:20px; }
+.fc-card { background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius); min-height:240px; display:flex; align-items:center; justify-content:center; padding:40px; text-align:center; cursor:pointer; transition:transform .4s; transform-style:preserve-3d; position:relative; perspective:1000px; margin-bottom:20px; }
+.fc-card.flipped .fc-front { opacity:0; }
+.fc-card.flipped .fc-back { opacity:1; }
+.fc-front,.fc-back { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; padding:36px; transition:opacity .25s; border-radius:var(--radius); flex-direction:column; gap:12px; }
+.fc-back { opacity:0; background:rgba(232,255,71,.05); }
+.fc-side-label { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); letter-spacing:.12em; text-transform:uppercase; }
+.fc-text { font-size:20px; font-weight:600; line-height:1.4; letter-spacing:-.01em; }
+.fc-back .fc-text { font-size:16px; font-weight:400; line-height:1.6; color:var(--text); }
+.fc-actions { display:flex; gap:12px; justify-content:center; margin-bottom:20px; }
+.fc-btn { flex:1; max-width:160px; padding:13px; border-radius:10px; font-family:'Syne',sans-serif; font-size:14px; font-weight:700; cursor:pointer; border:none; transition:opacity .15s; }
+.fc-btn.again { background:rgba(248,113,113,.15); color:var(--wrong); border:1.5px solid rgba(248,113,113,.3); }
+.fc-btn.good { background:rgba(74,222,128,.15); color:var(--correct); border:1.5px solid rgba(74,222,128,.3); }
+.fc-btn:hover { opacity:.8; }
+.fc-hint { text-align:center; font-size:13px; color:var(--muted); font-family:'DM Mono',monospace; margin-bottom:24px; }
+
+/* ── FEYNMAN ── */
+.feynman-concept { background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius); padding:24px; margin-bottom:20px; }
+.concept-label { font-family:'DM Mono',monospace; font-size:11px; color:var(--accent); letter-spacing:.12em; text-transform:uppercase; margin-bottom:10px; }
+.concept-text { font-size:17px; font-weight:600; line-height:1.4; }
+.feynman-feedback { background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius); padding:24px; margin-top:20px; display:none; }
+.feynman-feedback.show { display:block; }
+.feedback-score { display:flex; align-items:center; gap:14px; margin-bottom:16px; }
+.feedback-score-num { font-size:48px; font-weight:800; color:var(--accent); font-family:'Instrument Serif',serif; line-height:1; }
+.feedback-score-label { font-size:13px; color:var(--muted); font-family:'DM Mono',monospace; }
+.feedback-body { font-size:14px; line-height:1.7; color:var(--text); }
+.feedback-body h4 { font-size:13px; font-family:'DM Mono',monospace; color:var(--accent); letter-spacing:.08em; text-transform:uppercase; margin:16px 0 8px; }
+
+/* ── RESUME ── */
+.resume-output { background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius); padding:32px; margin-top:24px; display:none; }
+.resume-output.show { display:block; }
+.resume-output h3 { font-size:20px; font-weight:700; margin-bottom:6px; }
+.resume-output .resume-meta { font-family:'DM Mono',monospace; font-size:11px; color:var(--muted); margin-bottom:24px; letter-spacing:.05em; }
+.resume-section { margin-bottom:24px; }
+.resume-section h4 { font-size:13px; font-family:'DM Mono',monospace; color:var(--accent); letter-spacing:.1em; text-transform:uppercase; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid var(--border); }
+.resume-section p, .resume-section li { font-size:14px; line-height:1.7; color:var(--text); }
+.resume-section ul { padding-left:20px; }
+.resume-section li { margin-bottom:4px; }
+
+/* ── MINDMAP ── */
+.mindmap-output { background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius); padding:28px; margin-top:24px; display:none; overflow-x:auto; }
+.mindmap-output.show { display:block; }
+.mindmap-output h3 { font-size:18px; font-weight:700; margin-bottom:20px; }
+.mm-center { display:inline-block; padding:12px 20px; background:var(--accent); color:#000; border-radius:10px; font-weight:700; font-size:15px; margin-bottom:24px; }
+.mm-branches { display:flex; flex-wrap:wrap; gap:16px; }
+.mm-branch { background:var(--surface2); border:1.5px solid var(--border); border-radius:10px; padding:16px 20px; min-width:180px; flex:1; }
+.mm-branch-title { font-size:13px; font-weight:700; color:var(--accent); margin-bottom:10px; font-family:'DM Mono',monospace; }
+.mm-leaf { font-size:13px; color:var(--text); padding:5px 0; border-bottom:1px solid var(--border); line-height:1.4; }
+.mm-leaf:last-child { border-bottom:none; }
+
+/* ── EXAM SIM ── */
+.exam-timer { display:flex; align-items:center; justify-content:space-between; background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius); padding:16px 24px; margin-bottom:28px; }
+.timer-display { font-family:'DM Mono',monospace; font-size:28px; font-weight:500; color:var(--accent); letter-spacing:.05em; }
+.timer-display.warning { color:var(--wrong); animation:pulse 1s ease infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+.timer-label { font-size:12px; color:var(--muted); font-family:'DM Mono',monospace; }
+.exam-score-badge { font-family:'DM Mono',monospace; font-size:13px; color:var(--muted); }
+</style>
+</head>
+<body>
+
+<!-- ══ HOME ══ -->
+<div class="page active" id="page-home">
+<div class="container">
+  <div class="home-header">
+    <div class="home-tag">// Dit AI-studieværktøj</div>
+    <h1 class="home-title">Study<em>Forge</em></h1>
+    <p class="home-sub">Upload dit studiemateriale én gang — brug alle værktøjer til at lære det til bunds.</p>
+  </div>
+
+  <!-- Material upload (global) -->
+  <div style="margin-bottom:48px;">
+    <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--accent);letter-spacing:.12em;text-transform:uppercase;margin-bottom:12px;">Studiemateriale</div>
+    <div class="upload-zone" id="home-drop">
+      <input type="file" id="home-file" accept=".pdf,.txt,.md" style="display:none">
+      <div style="font-size:24px;margin-bottom:12px;">📄</div>
+      <h3>Træk din fil hertil</h3>
+      <p>eller klik for at vælge</p>
+      <div class="fmt-tags">
+        <span class="fmt-tag">.pdf</span>
+        <span class="fmt-tag">.txt</span>
+        <span class="fmt-tag">.md</span>
+      </div>
+    </div>
+    <div class="file-pill" id="home-pill">
+      <span id="home-pill-icon">📎</span>
+      <div>
+        <div style="font-weight:600;font-size:14px;" id="home-pill-name">—</div>
+        <div style="color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;" id="home-pill-meta">—</div>
+      </div>
+      <span class="fp-remove" id="home-pill-remove">✕</span>
+    </div>
+    <div class="divider">eller indsæt tekst</div>
+    <textarea id="home-text" placeholder="Indsæt noter, kapitler, artikler..."></textarea>
+  </div>
+
+  <div style="font-size:11px;font-family:'DM Mono',monospace;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:16px;">Vælg værktøj</div>
+  <!-- Boss Battle banner -->
+  <div onclick="window.location.href='/bossbattle.html'" style="display:flex;align-items:center;gap:20px;padding:20px 24px;background:linear-gradient(135deg,rgba(232,255,71,0.08),rgba(232,255,71,0.03));border:1.5px solid rgba(232,255,71,0.3);border-radius:14px;cursor:pointer;margin-bottom:20px;transition:border-color .2s,transform .15s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
+    <div style="font-size:40px;">⚔️</div>
+    <div style="flex:1">
+      <div style="font-size:18px;font-weight:700;margin-bottom:4px;">Boss Battle <span style="font-size:11px;font-family:'DM Mono',monospace;background:var(--accent);color:#000;padding:3px 8px;border-radius:4px;margin-left:8px;vertical-align:middle;">NY</span></div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.5;">Besejr 3 bosser — ét emne per boss. 3 forkerte svar = game over. ADHD-venligt og sjovt!</div>
+    </div>
+    <div style="font-size:12px;font-family:'DM Mono',monospace;color:var(--accent);flex-shrink:0;">SPIL ►</div>
+  </div>
+
+  <div class="tools-grid">
+    <div class="tool-card" onclick="goTool('quiz')">
+      <div class="tool-icon">⚡</div>
+      <div class="tool-name">Quiz</div>
+      <div class="tool-desc">Multiple choice spørgsmål genereret fra dit materiale. Afslør hvad du mangler at lære.</div>
+      <span class="tool-tag">active recall</span>
+    </div>
+    <div class="tool-card" onclick="goTool('flashcards')">
+      <div class="tool-icon">🃏</div>
+      <div class="tool-name">Flashcards</div>
+      <div class="tool-desc">Klassiske forside/bagside-kort med spaced repetition — kort du fejler kommer igen.</div>
+      <span class="tool-tag">spaced repetition</span>
+    </div>
+    <div class="tool-card" onclick="goTool('feynman')">
+      <div class="tool-icon">🧠</div>
+      <div class="tool-name">Feynman-teknik</div>
+      <div class="tool-desc">Forklar et begreb med dine egne ord. Claude vurderer din forståelse og giver feedback.</div>
+      <span class="tool-tag">dybdelæring</span>
+    </div>
+    <div class="tool-card" onclick="goTool('resume')">
+      <div class="tool-icon">📋</div>
+      <div class="tool-name">Resumé</div>
+      <div class="tool-desc">Struktureret resumé med nøglebegreber, vigtige pointer og det du absolut skal huske.</div>
+      <span class="tool-tag">overblik</span>
+    </div>
+    <div class="tool-card" onclick="goTool('mindmap')">
+      <div class="tool-icon">🕸️</div>
+      <div class="tool-name">Begrebskort</div>
+      <div class="tool-desc">Visuelt kort over sammenhænge og begreber i dit materiale — se helheden.</div>
+      <span class="tool-tag">visuel læring</span>
+    </div>
+    <div class="tool-card" onclick="goTool('exam')">
+      <div class="tool-icon">⏱️</div>
+      <div class="tool-name">Eksamenstest</div>
+      <div class="tool-desc">Tidssat quiz der simulerer eksamenspres. Ingen forklaringer undervejs — ligesom den rigtige eksamen.</div>
+      <span class="tool-tag">eksamenssimulation</span>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ══ QUIZ ══ -->
+<div class="page" id="page-quiz">
+<div class="container">
+  <div class="tool-header">
+    <button class="btn-back" onclick="goHome()">← Tilbage</button>
+    <div class="tool-header-text"><h2>⚡ Quiz</h2><p>Multiple choice med forklaringer</p></div>
+  </div>
+  <div id="quiz-setup">
+    <div class="cfg">
+      <div><label>Antal spørgsmål</label>
+        <select id="quiz-num"><option value="5">5</option><option value="10" selected>10</option><option value="15">15</option></select></div>
+      <div><label>Sværhedsgrad</label>
+        <select id="quiz-diff"><option value="let">Let</option><option value="mellem" selected>Mellem</option><option value="svær">Svær</option></select></div>
+    </div>
+    <button class="btn-primary" onclick="startQuiz()">⚡ Start quiz</button>
+    <div class="error-box" id="quiz-err"></div>
+  </div>
+  <div class="spinner-wrap" id="quiz-spinner">
+    <div class="spinner"></div>
+    <div class="spin-label">Genererer spørgsmål...</div>
+    <div class="spin-sub">Claude læser dit materiale</div>
+  </div>
+  <div id="quiz-playing" style="display:none">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div class="q-meta" id="quiz-prog">1 / 10</div>
+      <div class="exam-score-badge" id="quiz-live-score"></div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="quiz-bar" style="width:0%"></div></div>
+    <div id="quiz-qcontainer"></div>
+    <div class="q-footer">
+      <div></div>
+      <button class="btn-next" id="quiz-next" onclick="quizNext()" disabled>Næste →</button>
+    </div>
+  </div>
+  <div id="quiz-result" style="display:none"></div>
+</div>
+</div>
+
+<!-- ══ FLASHCARDS ══ -->
+<div class="page" id="page-flashcards">
+<div class="container">
+  <div class="tool-header">
+    <button class="btn-back" onclick="goHome()">← Tilbage</button>
+    <div class="tool-header-text"><h2>🃏 Flashcards</h2><p>Spaced repetition</p></div>
+  </div>
+  <div id="fc-setup">
+    <div class="cfg" style="grid-template-columns:1fr;">
+      <div><label>Antal kort</label>
+        <select id="fc-num"><option value="8">8 kort</option><option value="15" selected>15 kort</option><option value="25">25 kort</option></select></div>
+    </div>
+    <button class="btn-primary" onclick="startFC()">🃏 Generer flashcards</button>
+    <div class="error-box" id="fc-err"></div>
+  </div>
+  <div class="spinner-wrap" id="fc-spinner">
+    <div class="spinner"></div>
+    <div class="spin-label">Laver flashcards...</div>
+    <div class="spin-sub">Identificerer nøglebegreber</div>
+  </div>
+  <div id="fc-playing" style="display:none">
+    <div class="fc-progress" id="fc-prog"></div>
+    <div class="fc-card" id="fc-card" onclick="flipCard()">
+      <div class="fc-front"><div class="fc-side-label">Begreb</div><div class="fc-text" id="fc-front-text"></div></div>
+      <div class="fc-back"><div class="fc-side-label">Forklaring</div><div class="fc-text" id="fc-back-text"></div></div>
+    </div>
+    <div class="fc-hint" id="fc-hint">Klik kortet for at se svaret</div>
+    <div class="fc-actions" id="fc-actions" style="display:none">
+      <button class="fc-btn again" onclick="fcAnswer(false)">✗ Igen</button>
+      <button class="fc-btn good" onclick="fcAnswer(true)">✓ Husket</button>
+    </div>
+  </div>
+  <div id="fc-result" style="display:none"></div>
+</div>
+</div>
+
+<!-- ══ FEYNMAN ══ -->
+<div class="page" id="page-feynman">
+<div class="container">
+  <div class="tool-header">
+    <button class="btn-back" onclick="goHome()">← Tilbage</button>
+    <div class="tool-header-text"><h2>🧠 Feynman-teknik</h2><p>Forklar det — Claude vurderer</p></div>
+  </div>
+  <div id="feynman-setup">
+    <button class="btn-primary" onclick="loadFeynman()">🧠 Hent begreber</button>
+    <div class="error-box" id="feynman-err"></div>
+  </div>
+  <div class="spinner-wrap" id="feynman-spinner">
+    <div class="spinner"></div>
+    <div class="spin-label">Finder nøglebegreber...</div>
+    <div class="spin-sub">Claude analyserer materialet</div>
+  </div>
+  <div id="feynman-playing" style="display:none">
+    <div class="feynman-concept">
+      <div class="concept-label">Forklar dette begreb</div>
+      <div class="concept-text" id="feynman-concept"></div>
+    </div>
+    <textarea id="feynman-answer" placeholder="Forklar begrebet med dine egne ord — som om du forklarer det til en ven der aldrig har hørt om det..." style="min-height:180px;margin-bottom:14px;"></textarea>
+    <button class="btn-primary" onclick="evaluateFeynman()" id="feynman-submit">🧠 Vurder min forklaring</button>
+    <div class="spinner-wrap" id="feynman-eval-spinner" style="padding:40px 0;">
+      <div class="spinner"></div>
+      <div class="spin-label">Evaluerer...</div>
+    </div>
+    <div class="feynman-feedback" id="feynman-feedback"></div>
+    <div style="display:flex;gap:12px;margin-top:20px;" id="feynman-btns" style="display:none">
+      <button class="btn-primary" style="flex:1" onclick="nextFeynman()">Næste begreb →</button>
+      <button class="btn-back" onclick="loadFeynman()">Nye begreber</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ══ RESUME ══ -->
+<div class="page" id="page-resume">
+<div class="container">
+  <div class="tool-header">
+    <button class="btn-back" onclick="goHome()">← Tilbage</button>
+    <div class="tool-header-text"><h2>📋 Resumé</h2><p>Struktureret overblik over dit materiale</p></div>
+  </div>
+  <div id="resume-setup">
+    <button class="btn-primary" onclick="makeResume()">📋 Generer resumé</button>
+    <div class="error-box" id="resume-err"></div>
+  </div>
+  <div class="spinner-wrap" id="resume-spinner">
+    <div class="spinner"></div>
+    <div class="spin-label">Skriver resumé...</div>
+    <div class="spin-sub">Opsummerer nøglepunkter</div>
+  </div>
+  <div class="resume-output" id="resume-output"></div>
+</div>
+</div>
+
+<!-- ══ MINDMAP ══ -->
+<div class="page" id="page-mindmap">
+<div class="container">
+  <div class="tool-header">
+    <button class="btn-back" onclick="goHome()">← Tilbage</button>
+    <div class="tool-header-text"><h2>🕸️ Begrebskort</h2><p>Visuel oversigt over sammenhænge</p></div>
+  </div>
+  <div id="mindmap-setup">
+    <button class="btn-primary" onclick="makeMindmap()">🕸️ Generer begrebskort</button>
+    <div class="error-box" id="mindmap-err"></div>
+  </div>
+  <div class="spinner-wrap" id="mindmap-spinner">
+    <div class="spinner"></div>
+    <div class="spin-label">Kortlægger begreber...</div>
+    <div class="spin-sub">Finder sammenhænge</div>
+  </div>
+  <div class="mindmap-output" id="mindmap-output"></div>
+</div>
+</div>
+
+<!-- ══ EXAM ══ -->
+<div class="page" id="page-exam">
+<div class="container">
+  <div class="tool-header">
+    <button class="btn-back" onclick="goHome()">← Tilbage</button>
+    <div class="tool-header-text"><h2>⏱️ Eksamenstest</h2><p>Tidssat — ingen hjælp undervejs</p></div>
+  </div>
+  <div id="exam-setup">
+    <div class="cfg">
+      <div><label>Antal spørgsmål</label>
+        <select id="exam-num"><option value="10" selected>10</option><option value="15">15</option><option value="20">20</option></select></div>
+      <div><label>Tid per spørgsmål</label>
+        <select id="exam-time"><option value="30">30 sek</option><option value="60" selected>1 min</option><option value="90">90 sek</option><option value="120">2 min</option></select></div>
+    </div>
+    <button class="btn-primary" onclick="startExam()">⏱️ Start eksamenstest</button>
+    <div class="error-box" id="exam-err"></div>
+  </div>
+  <div class="spinner-wrap" id="exam-spinner">
+    <div class="spinner"></div>
+    <div class="spin-label">Forbereder eksamen...</div>
+    <div class="spin-sub">Genererer spørgsmål</div>
+  </div>
+  <div id="exam-playing" style="display:none">
+    <div class="exam-timer">
+      <div><div class="timer-label">Tid tilbage</div><div class="timer-display" id="exam-timer-display">1:00</div></div>
+      <div style="text-align:center"><div class="timer-label">Spørgsmål</div><div style="font-family:'DM Mono',monospace;font-size:18px;" id="exam-prog">1/10</div></div>
+      <div style="text-align:right"><div class="timer-label">Score</div><div style="font-family:'DM Mono',monospace;font-size:18px;color:var(--accent);" id="exam-live">0</div></div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="exam-bar" style="width:0%"></div></div>
+    <div id="exam-qcontainer"></div>
+  </div>
+  <div id="exam-result" style="display:none"></div>
+</div>
+</div>
+
+<script>
+// ══ GLOBAL STATE ══
+let G = { fileText:'', pdfBase64:'', isPdf:false };
+
+// ══ FILE HANDLING ══
+function setupDrop(dropId, fileId, pillId, nameId, metaId, iconId, removeId) {
+  const drop = document.getElementById(dropId);
+  const input = document.getElementById(fileId);
+  drop.addEventListener('click', () => input.click());
+  drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('drag'));
+  drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('drag'); if(e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0], pillId, nameId, metaId, iconId); });
+  input.addEventListener('change', e => { if(e.target.files[0]) loadFile(e.target.files[0], pillId, nameId, metaId, iconId); });
+  document.getElementById(removeId).addEventListener('click', () => {
+    G.fileText=''; G.pdfBase64=''; G.isPdf=false;
+    document.getElementById(pillId).classList.remove('show');
+    input.value='';
+  });
+}
+
+function loadFile(file, pillId, nameId, metaId, iconId) {
+  const isPdf = file.name.endsWith('.pdf');
+  const maxMB = isPdf ? 20 : 0.5;
+  if (file.size > maxMB*1024*1024) { alert(`Filen er for stor. Max ${maxMB}MB.`); return; }
+  const reader = new FileReader();
+  if (isPdf) {
+    reader.onload = e => {
+      G.pdfBase64 = e.target.result.split(',')[1];
+      G.fileText = ''; G.isPdf = true;
+      document.getElementById(iconId).textContent = '📕';
+      document.getElementById(nameId).textContent = file.name;
+      document.getElementById(metaId).textContent = `${(file.size/1024).toFixed(0)} KB · PDF`;
+      document.getElementById(pillId).classList.add('show');
+    };
+    reader.readAsDataURL(file);
+  } else {
+    reader.onload = e => {
+      G.fileText = e.target.result;
+      G.pdfBase64 = ''; G.isPdf = false;
+      document.getElementById(iconId).textContent = '📎';
+      document.getElementById(nameId).textContent = file.name;
+      document.getElementById(metaId).textContent = `${(file.size/1024).toFixed(1)} KB · tekst`;
+      document.getElementById(pillId).classList.add('show');
+    };
+    reader.readAsText(file);
+  }
+}
+
+setupDrop('home-drop','home-file','home-pill','home-pill-name','home-pill-meta','home-pill-icon','home-pill-remove');
+
+// ══ NAV ══
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  window.scrollTo(0,0);
+}
+function goHome() { showPage('home'); }
+
+function getContent() {
+  const text = document.getElementById('home-text').value.trim();
+  return G.pdfBase64 || G.fileText || text;
+}
+function hasContent() { return !!(G.pdfBase64 || G.fileText || document.getElementById('home-text').value.trim()); }
+
+function goTool(tool) {
+  if (!hasContent()) { alert('Upload en fil eller indsæt tekst på forsiden først.'); return; }
+  showPage(tool);
+}
+
+// ══ API ══
+function buildMessages(prompt) {
+  if (G.isPdf && G.pdfBase64) {
+    return [{ role:'user', content:[
+      { type:'document', source:{ type:'base64', media_type:'application/pdf', data:G.pdfBase64 } },
+      { type:'text', text:prompt }
+    ]}];
+  }
+  const text = G.fileText || document.getElementById('home-text').value.trim();
+  return [{ role:'user', content: prompt + '\n\nMATERIALE:\n' + text.slice(0,8000) }];
+}
+
+async function callClaude(prompt) {
+  const res = await fetch('/api/claude', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ messages: buildMessages(prompt) })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || data.error || JSON.stringify(data));
+  const raw = (data.content||[]).map(i=>i.text||'').join('');
+  return raw;
+}
+
+function parseJSON(raw) {
+  const s = raw.indexOf('{'), e = raw.lastIndexOf('}');
+  if (s===-1||e===-1) throw new Error('Ingen JSON fundet i svar. Prøv igen.');
+  return JSON.parse(raw.slice(s,e+1));
+}
+
+function showErr(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg; el.classList.add('show');
+}
+function hideErr(id) { document.getElementById(id).classList.remove('show'); }
+
+// ══════════════════════════
+//  QUIZ
+// ══════════════════════════
+let QZ = { qs:[], cur:0, sc:0, ans:[] };
+
+async function startQuiz() {
+  hideErr('quiz-err');
+  const num = document.getElementById('quiz-num').value;
+  const diff = document.getElementById('quiz-diff').value;
+  document.getElementById('quiz-setup').style.display='none';
+  document.getElementById('quiz-spinner').classList.add('on');
+  try {
+    const raw = await callClaude(`Lav præcis ${num} multiple choice spørgsmål, sværhedsgrad "${diff}". Hvert spørgsmål har 4 svarmuligheder. RETURNER KUN JSON:\n{"questions":[{"question":"...","options":["A","B","C","D"],"correct":0,"explanation":"..."}]}`);
+    const parsed = parseJSON(raw);
+    QZ = { qs:parsed.questions, cur:0, sc:0, ans:[] };
+    document.getElementById('quiz-spinner').classList.remove('on');
+    document.getElementById('quiz-playing').style.display='block';
+    renderQuizQ();
+  } catch(e) {
+    document.getElementById('quiz-spinner').classList.remove('on');
+    document.getElementById('quiz-setup').style.display='block';
+    showErr('quiz-err','Fejl: '+e.message);
+  }
+}
+
+function renderQuizQ() {
+  const q = QZ.qs[QZ.cur], tot = QZ.qs.length;
+  document.getElementById('quiz-prog').textContent = `${QZ.cur+1} / ${tot}`;
+  document.getElementById('quiz-live-score').textContent = `${QZ.sc} korrekte`;
+  document.getElementById('quiz-bar').style.width = `${(QZ.cur/tot)*100}%`;
+  document.getElementById('quiz-next').disabled = true;
+  document.getElementById('quiz-next').textContent = QZ.cur===tot-1 ? 'Se resultat 🎯' : 'Næste →';
+  const L=['A','B','C','D'];
+  document.getElementById('quiz-qcontainer').innerHTML = `
+    <div class="q-card">
+      <div class="q-text">${q.question}</div>
+      <div class="options">${q.options.map((o,i)=>`
+        <button class="option" onclick="quizPick(${i})" id="qo${i}">
+          <span class="opt-letter">${L[i]}</span>${o}
+        </button>`).join('')}
+      </div>
+      <div class="expl" id="qexpl">${q.explanation}</div>
+    </div>`;
+}
+
+function quizPick(idx) {
+  const q = QZ.qs[QZ.cur];
+  for(let i=0;i<4;i++){
+    const b=document.getElementById('qo'+i); if(!b)continue;
+    b.disabled=true;
+    if(i===q.correct) b.classList.add('correct');
+    else if(i===idx) b.classList.add('wrong');
+  }
+  const ok = idx===q.correct;
+  if(ok) QZ.sc++;
+  QZ.ans.push({question:q.question,chosen:idx,correct:q.correct,ok,options:q.options});
+  document.getElementById('qexpl').classList.add('show');
+  document.getElementById('quiz-next').disabled=false;
+  document.getElementById('quiz-live-score').textContent=`${QZ.sc} korrekte`;
+}
+
+function quizNext() {
+  QZ.cur++;
+  if(QZ.cur>=QZ.qs.length) showQuizResult();
+  else renderQuizQ();
+}
+
+function showQuizResult() {
+  document.getElementById('quiz-playing').style.display='none';
+  const tot=QZ.qs.length, pct=Math.round((QZ.sc/tot)*100);
+  const v = pct===100?'🏆 Perfekt!':pct>=80?'🌟 Fremragende':pct>=60?'👍 Godt klaret':pct>=40?'📚 Næsten der':'💪 Bliv ved';
+  const L=['A','B','C','D'];
+  document.getElementById('quiz-result').style.display='block';
+  document.getElementById('quiz-result').innerHTML=`
+    <div class="result-hero">
+      <div class="score-big">${QZ.sc}/${tot}</div>
+      <div class="score-sub">${pct}% korrekte</div>
+      <div class="verdict">${v}</div>
+      <div class="result-btns">
+        <button class="btn-primary" style="width:auto;padding:11px 24px" onclick="retakeQuiz()">🔁 Tag igen</button>
+        <button class="btn-back" onclick="goHome()">← Nyt materiale</button>
+      </div>
+    </div>
+    <div class="rev-title">Gennemgang</div>
+    ${QZ.ans.map((a,i)=>`
+      <div class="rev-item ${a.ok?'ok':'no'}">
+        <div class="rev-q">${i+1}. ${a.question}</div>
+        <div class="rev-ans">
+          <span class="badge ${a.ok?'ok':'no'}">${a.ok?'✓ Korrekt':'✗ Forkert'}</span>
+          ${!a.ok?`Dit: <b>${L[a.chosen]}</b> · Rigtigt: <b>${L[a.correct]}</b>: ${a.options[a.correct]}`:L[a.correct]+': '+a.options[a.correct]}
+        </div>
+      </div>`).join('')}`;
+}
+
+function retakeQuiz() {
+  QZ.cur=0; QZ.sc=0; QZ.ans=[];
+  document.getElementById('quiz-result').style.display='none';
+  document.getElementById('quiz-playing').style.display='block';
+  renderQuizQ();
+}
+
+// ══════════════════════════
+//  FLASHCARDS
+// ══════════════════════════
+let FC = { cards:[], queue:[], cur:0, done:0, total:0 };
+
+async function startFC() {
+  hideErr('fc-err');
+  const num = document.getElementById('fc-num').value;
+  document.getElementById('fc-setup').style.display='none';
+  document.getElementById('fc-spinner').classList.add('on');
+  try {
+    const raw = await callClaude(`Lav præcis ${num} flashcards med nøglebegreber. RETURNER KUN JSON:\n{"cards":[{"front":"Begreb eller spørgsmål","back":"Forklaring eller svar"}]}`);
+    const parsed = parseJSON(raw);
+    FC.cards = parsed.cards;
+    FC.queue = [...parsed.cards.map((_,i)=>i)];
+    FC.cur = 0; FC.done = 0; FC.total = FC.cards.length;
+    document.getElementById('fc-spinner').classList.remove('on');
+    document.getElementById('fc-playing').style.display='block';
+    renderFC();
+  } catch(e) {
+    document.getElementById('fc-spinner').classList.remove('on');
+    document.getElementById('fc-setup').style.display='block';
+    showErr('fc-err','Fejl: '+e.message);
+  }
+}
+
+function renderFC() {
+  if (FC.queue.length===0) { showFCResult(); return; }
+  const idx = FC.queue[0];
+  const card = FC.cards[idx];
+  const remaining = FC.queue.length;
+  document.getElementById('fc-prog').textContent = `${FC.done} husket · ${remaining} tilbage`;
+  document.getElementById('fc-front-text').textContent = card.front;
+  document.getElementById('fc-back-text').textContent = card.back;
+  document.getElementById('fc-card').classList.remove('flipped');
+  document.getElementById('fc-hint').style.display='block';
+  document.getElementById('fc-hint').textContent='Klik kortet for at se svaret';
+  document.getElementById('fc-actions').style.display='none';
+}
+
+function flipCard() {
+  const card = document.getElementById('fc-card');
+  if (!card.classList.contains('flipped')) {
+    card.classList.add('flipped');
+    document.getElementById('fc-hint').textContent='Huskede du det?';
+    document.getElementById('fc-actions').style.display='flex';
+  }
+}
+
+function fcAnswer(remembered) {
+  const idx = FC.queue.shift();
+  if (remembered) {
+    FC.done++;
+  } else {
+    // Put back near the end with some randomness
+    const insertAt = Math.min(FC.queue.length, 3 + Math.floor(Math.random()*3));
+    FC.queue.splice(insertAt, 0, idx);
+  }
+  renderFC();
+}
+
+function showFCResult() {
+  document.getElementById('fc-playing').style.display='none';
+  document.getElementById('fc-result').style.display='block';
+  document.getElementById('fc-result').innerHTML=`
+    <div class="result-hero">
+      <div class="score-big">${FC.total}</div>
+      <div class="score-sub">alle kort husket 🎉</div>
+      <div class="verdict">Sættet gennemført!</div>
+      <div class="result-btns">
+        <button class="btn-primary" style="width:auto;padding:11px 24px" onclick="restartFC()">🔁 Kør igen</button>
+        <button class="btn-back" onclick="goHome()">← Tilbage</button>
+      </div>
+    </div>`;
+}
+
+function restartFC() {
+  FC.queue = [...FC.cards.map((_,i)=>i)];
+  FC.done = 0;
+  document.getElementById('fc-result').style.display='none';
+  document.getElementById('fc-playing').style.display='block';
+  renderFC();
+}
+
+// ══════════════════════════
+//  FEYNMAN
+// ══════════════════════════
+let FY = { concepts:[], cur:0 };
+
+async function loadFeynman() {
+  hideErr('feynman-err');
+  document.getElementById('feynman-setup').style.display='none';
+  document.getElementById('feynman-spinner').classList.add('on');
+  document.getElementById('feynman-playing').style.display='none';
+  try {
+    const raw = await callClaude(`Find 5 vigtige nøglebegreber fra materialet som man bør forstå til eksamen. RETURNER KUN JSON:\n{"concepts":["begreb1","begreb2","begreb3","begreb4","begreb5"]}`);
+    const parsed = parseJSON(raw);
+    FY.concepts = parsed.concepts;
+    FY.cur = 0;
+    document.getElementById('feynman-spinner').classList.remove('on');
+    document.getElementById('feynman-playing').style.display='block';
+    renderFeynman();
+  } catch(e) {
+    document.getElementById('feynman-spinner').classList.remove('on');
+    document.getElementById('feynman-setup').style.display='block';
+    showErr('feynman-err','Fejl: '+e.message);
+  }
+}
+
+function renderFeynman() {
+  document.getElementById('feynman-concept').textContent = FY.concepts[FY.cur];
+  document.getElementById('feynman-answer').value='';
+  document.getElementById('feynman-feedback').classList.remove('show');
+  document.getElementById('feynman-feedback').innerHTML='';
+  document.getElementById('feynman-submit').style.display='flex';
+  document.getElementById('feynman-eval-spinner').classList.remove('on');
+  const btns = document.getElementById('feynman-btns');
+  btns.style.display='none';
+}
+
+async function evaluateFeynman() {
+  const answer = document.getElementById('feynman-answer').value.trim();
+  if (!answer) { alert('Skriv din forklaring først.'); return; }
+  const concept = FY.concepts[FY.cur];
+  document.getElementById('feynman-submit').style.display='none';
+  document.getElementById('feynman-eval-spinner').classList.add('on');
+  try {
+    const content = G.isPdf && G.pdfBase64
+      ? `Begrebet er: "${concept}". Elevens forklaring: "${answer}". Vurder forklaringen baseret på dit kendskab.`
+      : `Materialet handler om: ${(G.fileText||document.getElementById('home-text').value).slice(0,3000)}\n\nBegrebet er: "${concept}". Elevens forklaring: "${answer}".`;
+
+    const messages = G.isPdf && G.pdfBase64
+      ? [{ role:'user', content:[
+          { type:'document', source:{ type:'base64', media_type:'application/pdf', data:G.pdfBase64 } },
+          { type:'text', text:`Eleven skal forklare begrebet "${concept}". Elevens forklaring: "${answer}"\n\nVurder forklaringen. RETURNER KUN JSON:\n{"score":7,"strengths":"...","gaps":"...","correction":"..."}` }
+        ]}]
+      : [{ role:'user', content:`Materialet: ${(G.fileText||document.getElementById('home-text').value).slice(0,4000)}\n\nEleven skal forklare begrebet "${concept}".\nElevens forklaring: "${answer}"\n\nVurder forklaringen 1-10. RETURNER KUN JSON:\n{"score":7,"strengths":"hvad eleven forstår godt","gaps":"hvad der mangler eller er forkert","correction":"den korrekte forklaring"}` }];
+
+    const res = await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages})});
+    const data = await res.json();
+    const raw = (data.content||[]).map(i=>i.text||'').join('');
+    const fb = parseJSON(raw);
+    document.getElementById('feynman-eval-spinner').classList.remove('on');
+    const scoreColor = fb.score>=8?'var(--correct)':fb.score>=5?'var(--accent)':'var(--wrong)';
+    document.getElementById('feynman-feedback').innerHTML=`
+      <div class="feedback-score">
+        <div class="feedback-score-num" style="color:${scoreColor}">${fb.score}<span style="font-size:24px;color:var(--muted)">/10</span></div>
+        <div class="feedback-score-label">forståelsesscore</div>
+      </div>
+      <div class="feedback-body">
+        <h4>✓ Det du forstår</h4><p>${fb.strengths}</p>
+        <h4>⚠ Mangler / fejl</h4><p>${fb.gaps||'Ingen større fejl!'}</p>
+        <h4>📖 Korrekt forklaring</h4><p>${fb.correction}</p>
+      </div>`;
+    document.getElementById('feynman-feedback').classList.add('show');
+    const btns = document.getElementById('feynman-btns');
+    btns.style.display='flex';
+    if(FY.cur>=FY.concepts.length-1) btns.querySelector('button:first-child').textContent='✓ Alle begreber gennemgået';
+  } catch(e) {
+    document.getElementById('feynman-eval-spinner').classList.remove('on');
+    document.getElementById('feynman-submit').style.display='flex';
+    alert('Fejl: '+e.message);
+  }
+}
+
+function nextFeynman() {
+  FY.cur++;
+  if(FY.cur>=FY.concepts.length) { FY.cur=0; loadFeynman(); return; }
+  renderFeynman();
+}
+
+// ══════════════════════════
+//  RESUME
+// ══════════════════════════
+async function makeResume() {
+  hideErr('resume-err');
+  document.getElementById('resume-setup').style.display='none';
+  document.getElementById('resume-spinner').classList.add('on');
+  try {
+    const raw = await callClaude(`Lav et struktureret studieresumé af materialet. RETURNER KUN JSON:\n{"title":"Titel på materialet","sections":[{"heading":"Afsnitsoverskrift","points":["punkt 1","punkt 2"]},{"heading":"Nøglebegreber","points":["begreb: forklaring"]}],"mustKnow":["absolut vigtigste punkt 1","vigtigste punkt 2","vigtigste punkt 3"]}`);
+    const parsed = parseJSON(raw);
+    document.getElementById('resume-spinner').classList.remove('on');
+    const out = document.getElementById('resume-output');
+    out.innerHTML=`
+      <h3>${parsed.title}</h3>
+      <div class="resume-meta">STUDIERESUMÉ · ${parsed.sections.length} afsnit</div>
+      <div class="resume-section" style="background:rgba(232,255,71,.05);border:1px solid rgba(232,255,71,.2);border-radius:10px;padding:16px 20px;margin-bottom:24px;">
+        <h4>⭐ Det du SKAL huske</h4>
+        <ul>${parsed.mustKnow.map(p=>`<li>${p}</li>`).join('')}</ul>
+      </div>
+      ${parsed.sections.map(s=>`
+        <div class="resume-section">
+          <h4>${s.heading}</h4>
+          <ul>${s.points.map(p=>`<li>${p}</li>`).join('')}</ul>
+        </div>`).join('')}`;
+    out.classList.add('show');
+  } catch(e) {
+    document.getElementById('resume-spinner').classList.remove('on');
+    document.getElementById('resume-setup').style.display='block';
+    showErr('resume-err','Fejl: '+e.message);
+  }
+}
+
+// ══════════════════════════
+//  MINDMAP
+// ══════════════════════════
+async function makeMindmap() {
+  hideErr('mindmap-err');
+  document.getElementById('mindmap-setup').style.display='none';
+  document.getElementById('mindmap-spinner').classList.add('on');
+  try {
+    const raw = await callClaude(`Lav et begrebskort over materialet. RETURNER KUN JSON:\n{"center":"Hovedemne","branches":[{"title":"Undertema","concepts":["begreb 1","begreb 2","begreb 3"]}]}`);
+    const parsed = parseJSON(raw);
+    document.getElementById('mindmap-spinner').classList.remove('on');
+    const out = document.getElementById('mindmap-output');
+    out.innerHTML=`
+      <h3>🕸️ Begrebskort</h3>
+      <div><span class="mm-center">${parsed.center}</span></div>
+      <div class="mm-branches">
+        ${parsed.branches.map(b=>`
+          <div class="mm-branch">
+            <div class="mm-branch-title">${b.title}</div>
+            ${b.concepts.map(c=>`<div class="mm-leaf">→ ${c}</div>`).join('')}
+          </div>`).join('')}
+      </div>`;
+    out.classList.add('show');
+  } catch(e) {
+    document.getElementById('mindmap-spinner').classList.remove('on');
+    document.getElementById('mindmap-setup').style.display='block';
+    showErr('mindmap-err','Fejl: '+e.message);
+  }
+}
+
+// ══════════════════════════
+//  EXAM
+// ══════════════════════════
+let EX = { qs:[], cur:0, sc:0, ans:[], timer:null, secLeft:0, timePerQ:60 };
+
+async function startExam() {
+  hideErr('exam-err');
+  const num = document.getElementById('exam-num').value;
+  EX.timePerQ = parseInt(document.getElementById('exam-time').value);
+  document.getElementById('exam-setup').style.display='none';
+  document.getElementById('exam-spinner').classList.add('on');
+  try {
+    const raw = await callClaude(`Lav præcis ${num} multiple choice eksamenssspørgsmål, blandet sværhedsgrad. RETURNER KUN JSON:\n{"questions":[{"question":"...","options":["A","B","C","D"],"correct":0}]}`);
+    const parsed = parseJSON(raw);
+    EX.qs=parsed.questions; EX.cur=0; EX.sc=0; EX.ans=[];
+    document.getElementById('exam-spinner').classList.remove('on');
+    document.getElementById('exam-playing').style.display='block';
+    renderExamQ();
+  } catch(e) {
+    document.getElementById('exam-spinner').classList.remove('on');
+    document.getElementById('exam-setup').style.display='block';
+    showErr('exam-err','Fejl: '+e.message);
+  }
+}
+
+function renderExamQ() {
+  clearInterval(EX.timer);
+  const q=EX.qs[EX.cur], tot=EX.qs.length;
+  document.getElementById('exam-prog').textContent=`${EX.cur+1}/${tot}`;
+  document.getElementById('exam-live').textContent=EX.sc;
+  document.getElementById('exam-bar').style.width=`${(EX.cur/tot)*100}%`;
+  const L=['A','B','C','D'];
+  document.getElementById('exam-qcontainer').innerHTML=`
+    <div class="q-card">
+      <div class="q-text">${q.question}</div>
+      <div class="options">${q.options.map((o,i)=>`
+        <button class="option" onclick="examPick(${i})" id="eo${i}">
+          <span class="opt-letter">${L[i]}</span>${o}
+        </button>`).join('')}
+      </div>
+    </div>`;
+  // Timer
+  EX.secLeft = EX.timePerQ;
+  updateTimer();
+  EX.timer = setInterval(() => {
+    EX.secLeft--;
+    updateTimer();
+    if(EX.secLeft<=0) { clearInterval(EX.timer); examPick(-1); } // time's up
+  },1000);
+}
+
+function updateTimer() {
+  const m=Math.floor(EX.secLeft/60), s=EX.secLeft%60;
+  const disp=document.getElementById('exam-timer-display');
+  disp.textContent=`${m}:${s.toString().padStart(2,'0')}`;
+  disp.classList.toggle('warning', EX.secLeft<=10);
+}
+
+function examPick(idx) {
+  clearInterval(EX.timer);
+  const q=EX.qs[EX.cur];
+  for(let i=0;i<4;i++){
+    const b=document.getElementById('eo'+i); if(!b)continue;
+    b.disabled=true;
+    if(i===q.correct) b.classList.add('correct');
+    else if(i===idx) b.classList.add('wrong');
+  }
+  const ok = idx===q.correct;
+  if(ok) EX.sc++;
+  EX.ans.push({question:q.question,chosen:idx,correct:q.correct,ok,options:q.options,timedOut:idx===-1});
+  document.getElementById('exam-live').textContent=EX.sc;
+  // Auto-advance after short pause
+  setTimeout(() => {
+    EX.cur++;
+    if(EX.cur>=EX.qs.length) showExamResult();
+    else renderExamQ();
+  }, idx===-1?800:1200);
+}
+
+function showExamResult() {
+  document.getElementById('exam-playing').style.display='none';
+  const tot=EX.qs.length, pct=Math.round((EX.sc/tot)*100);
+  const v=pct===100?'🏆 Perfekt eksamen!':pct>=80?'🌟 Bestået med glans':pct>=60?'👍 Bestået':pct>=40?'📚 Næsten nok':'💪 Mere læsning nødvendig';
+  const L=['A','B','C','D'];
+  document.getElementById('exam-result').style.display='block';
+  document.getElementById('exam-result').innerHTML=`
+    <div class="result-hero">
+      <div class="score-big">${EX.sc}/${tot}</div>
+      <div class="score-sub">${pct}% · eksamensresultat</div>
+      <div class="verdict">${v}</div>
+      <div class="result-btns">
+        <button class="btn-primary" style="width:auto;padding:11px 24px" onclick="retakeExam()">🔁 Tag igen</button>
+        <button class="btn-back" onclick="goHome()">← Tilbage</button>
+      </div>
+    </div>
+    <div class="rev-title">Gennemgang</div>
+    ${EX.ans.map((a,i)=>`
+      <div class="rev-item ${a.ok?'ok':'no'}">
+        <div class="rev-q">${i+1}. ${a.question}</div>
+        <div class="rev-ans">
+          ${a.timedOut?'<span class="badge no">⏱ Tid udløbet</span>':''}
+          <span class="badge ${a.ok?'ok':'no'}">${a.ok?'✓':'✗'} ${a.ok?'Korrekt':'Forkert'}</span>
+          ${!a.ok&&!a.timedOut?`Dit: <b>${L[a.chosen]}</b> · Rigtigt: <b>${L[a.correct]}</b>`:!a.timedOut?L[a.correct]+': '+a.options[a.correct]:'Rigtigt svar: '+L[a.correct]+': '+a.options[a.correct]}
+        </div>
+      </div>`).join('')}`;
+}
+
+function retakeExam() {
+  EX.cur=0; EX.sc=0; EX.ans=[];
+  document.getElementById('exam-result').style.display='none';
+  document.getElementById('exam-playing').style.display='block';
+  renderExamQ();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boss Battle — Samfundsfag C</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0a0a0a; --surface:#141414; --surface2:#1c1c1c;
+  --border:#262626; --accent:#e8ff47; --text:#f0ede8; --muted:#5a5a5a;
+  --correct:#4ade80; --wrong:#f87171; --radius:14px;
+  --hp-green:#4ade80; --hp-yellow:#facc15; --hp-red:#f87171;
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+body { background:var(--bg); color:var(--text); font-family:'Syne',sans-serif; min-height:100vh; }
+
+body::before { content:''; position:fixed; inset:0;
+  background-image:linear-gradient(rgba(232,255,71,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(232,255,71,0.02) 1px,transparent 1px);
+  background-size:64px 64px; pointer-events:none; z-index:0; }
+
+.container { max-width:760px; margin:0 auto; padding:0 24px; position:relative; z-index:1; }
+
+/* ── SCREENS ── */
+.screen { display:none; }
+.screen.active { display:block; }
+
+/* ── HOME SCREEN ── */
+#screen-home { padding:60px 0; text-align:center; }
+.game-title { font-size:clamp(48px,8vw,80px); font-weight:800; letter-spacing:-.03em; line-height:1; margin-bottom:12px; }
+.game-title em { font-family:'Instrument Serif',serif; font-style:italic; color:var(--accent); }
+.game-subtitle { font-size:16px; color:var(--muted); margin-bottom:48px; font-weight:400; }
+.boss-select { display:flex; flex-direction:column; gap:12px; margin-bottom:40px; }
+.boss-btn { display:flex; align-items:center; gap:20px; padding:20px 24px;
+  background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius);
+  cursor:pointer; text-align:left; transition:border-color .2s,transform .15s,background .2s;
+  width:100%; }
+.boss-btn:hover { border-color:var(--accent); transform:translateX(4px); background:rgba(232,255,71,.03); }
+.boss-btn.locked { opacity:.4; cursor:not-allowed; }
+.boss-btn.locked:hover { transform:none; border-color:var(--border); background:var(--surface); }
+.boss-btn.cleared { border-color:rgba(74,222,128,.4); }
+.boss-emoji { font-size:36px; width:56px; text-align:center; flex-shrink:0; }
+.boss-info { flex:1; }
+.boss-name { font-size:17px; font-weight:700; margin-bottom:4px; }
+.boss-topics { font-size:12px; color:var(--muted); font-family:'DM Mono',monospace; line-height:1.5; }
+.boss-status { font-size:12px; font-family:'DM Mono',monospace; }
+.boss-btn.cleared .boss-status { color:var(--correct); }
+.boss-btn:not(.cleared):not(.locked) .boss-status { color:var(--accent); }
+.home-tip { background:rgba(232,255,71,.06); border:1px solid rgba(232,255,71,.15); border-radius:10px;
+  padding:16px 20px; font-size:13px; color:var(--muted); text-align:left; line-height:1.6;
+  font-family:'DM Mono',monospace; }
+.home-tip strong { color:var(--accent); }
+
+/* ── BATTLE SCREEN ── */
+#screen-battle { padding:32px 0 60px; }
+
+.battle-header { display:flex; align-items:center; gap:16px; margin-bottom:28px; }
+.back-btn { padding:8px 16px; background:var(--surface2); border:1.5px solid var(--border);
+  border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; color:var(--text);
+  transition:border-color .2s; font-family:'Syne',sans-serif; }
+.back-btn:hover { border-color:var(--accent); }
+
+/* Boss HP */
+.boss-arena { background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius);
+  padding:24px; margin-bottom:24px; }
+.boss-arena-top { display:flex; align-items:center; gap:16px; margin-bottom:16px; }
+.boss-avatar { font-size:48px; animation:float 3s ease-in-out infinite; }
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+.boss-arena-info { flex:1; }
+.boss-arena-name { font-size:20px; font-weight:800; margin-bottom:4px; }
+.boss-arena-sub { font-size:12px; color:var(--muted); font-family:'DM Mono',monospace; }
+.hp-bar-wrap { margin-top:12px; }
+.hp-label { display:flex; justify-content:space-between; font-size:11px; font-family:'DM Mono',monospace;
+  color:var(--muted); margin-bottom:6px; }
+.hp-bar { height:12px; background:var(--border); border-radius:99px; overflow:hidden; }
+.hp-fill { height:100%; border-radius:99px; transition:width .5s ease, background .3s; }
+
+/* Player lives */
+.player-lives { display:flex; align-items:center; gap:8px; padding:12px 16px;
+  background:var(--surface2); border:1px solid var(--border); border-radius:10px;
+  margin-bottom:24px; font-family:'DM Mono',monospace; font-size:13px; }
+.lives-label { color:var(--muted); margin-right:4px; }
+.life { font-size:20px; transition:opacity .3s; }
+.life.lost { opacity:.2; }
+
+/* Streak */
+.streak-bar { display:flex; align-items:center; gap:8px; margin-bottom:20px; font-size:12px;
+  font-family:'DM Mono',monospace; color:var(--muted); }
+.streak-dot { width:14px; height:14px; border-radius:50%; background:var(--border);
+  transition:background .3s, transform .2s; }
+.streak-dot.hit { background:var(--accent); transform:scale(1.2); }
+
+/* Question */
+.q-card { background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius);
+  padding:28px; margin-bottom:16px; }
+.q-round { font-family:'DM Mono',monospace; font-size:11px; color:var(--accent);
+  letter-spacing:.12em; text-transform:uppercase; margin-bottom:10px; }
+.q-text { font-size:18px; font-weight:600; line-height:1.4; }
+.options { display:flex; flex-direction:column; gap:9px; margin-top:20px; }
+.option { display:flex; align-items:center; gap:12px; padding:13px 16px;
+  background:var(--surface2); border:1.5px solid var(--border); border-radius:10px;
+  cursor:pointer; text-align:left; width:100%; color:var(--text);
+  font-family:'Syne',sans-serif; font-size:14px; font-weight:500;
+  transition:border-color .12s, background .12s; }
+.option:hover:not(:disabled) { border-color:var(--accent); background:rgba(232,255,71,.05); }
+.option:disabled { cursor:default; }
+.option.correct { border-color:var(--correct); background:rgba(74,222,128,.08); color:var(--correct); }
+.option.wrong { border-color:var(--wrong); background:rgba(248,113,113,.08); color:var(--wrong); }
+.opt-letter { width:26px; height:26px; flex-shrink:0; border-radius:6px;
+  background:var(--bg); border:1px solid var(--border); display:flex;
+  align-items:center; justify-content:center; font-family:'DM Mono',monospace; font-size:12px; }
+.option.correct .opt-letter { background:var(--correct); border-color:var(--correct); color:#000; }
+.option.wrong .opt-letter { background:var(--wrong); border-color:var(--wrong); color:#000; }
+.expl { margin-top:16px; padding:14px 18px; background:rgba(232,255,71,.06);
+  border-left:3px solid var(--accent); border-radius:0 8px 8px 0;
+  font-size:13px; line-height:1.6; display:none; }
+.expl.show { display:block; }
+
+/* Hit effects */
+.hit-effect { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+  font-size:80px; font-weight:900; pointer-events:none; z-index:100;
+  animation:hitAnim .7s ease forwards; opacity:0; }
+@keyframes hitAnim {
+  0%{opacity:1;transform:translate(-50%,-50%) scale(.5)}
+  30%{opacity:1;transform:translate(-50%,-60%) scale(1.3)}
+  100%{opacity:0;transform:translate(-50%,-80%) scale(1)}
+}
+.screen-flash { position:fixed; inset:0; pointer-events:none; z-index:99;
+  animation:flashAnim .4s ease forwards; opacity:0; }
+@keyframes flashAnim { 0%{opacity:.3} 100%{opacity:0} }
+
+/* Continue btn */
+.continue-btn { width:100%; padding:16px; background:var(--accent); color:#000;
+  border:none; border-radius:var(--radius); font-family:'Syne',sans-serif;
+  font-size:15px; font-weight:700; cursor:pointer; margin-top:16px;
+  transition:opacity .15s; display:none; }
+.continue-btn:hover { opacity:.88; }
+.continue-btn.show { display:block; }
+
+/* Lifeline */
+.lifeline-btn { padding:10px 18px; background:var(--surface2); color:var(--text);
+  border:1.5px solid var(--border); border-radius:8px; font-size:13px; font-weight:600;
+  cursor:pointer; font-family:'Syne',sans-serif; transition:border-color .2s; }
+.lifeline-btn:hover:not(:disabled) { border-color:var(--accent); }
+.lifeline-btn:disabled { opacity:.3; cursor:not-allowed; }
+.lifeline-row { display:flex; gap:10px; margin-bottom:16px; align-items:center; }
+.lifeline-label { font-size:11px; color:var(--muted); font-family:'DM Mono',monospace;
+  letter-spacing:.08em; text-transform:uppercase; }
+
+/* Loading */
+.spinner-wrap { display:flex; flex-direction:column; align-items:center; gap:16px;
+  padding:60px 0; text-align:center; }
+.spinner { width:40px; height:40px; border:2px solid var(--border);
+  border-top-color:var(--accent); border-radius:50%; animation:spin .75s linear infinite; }
+@keyframes spin { to{transform:rotate(360deg)} }
+
+/* ── RESULT SCREEN ── */
+#screen-result { padding:60px 0; text-align:center; }
+.result-emoji { font-size:80px; margin-bottom:20px; animation:float 2s ease-in-out infinite; }
+.result-title { font-size:36px; font-weight:800; letter-spacing:-.02em; margin-bottom:10px; }
+.result-sub { font-size:15px; color:var(--muted); margin-bottom:36px; line-height:1.6; }
+.result-stats { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:36px; }
+.stat-box { background:var(--surface); border:1.5px solid var(--border); border-radius:var(--radius); padding:20px; }
+.stat-num { font-size:32px; font-weight:800; color:var(--accent); font-family:'Instrument Serif',serif; }
+.stat-label { font-size:11px; color:var(--muted); font-family:'DM Mono',monospace; margin-top:4px; }
+.result-btn { padding:16px 32px; background:var(--accent); color:#000; border:none;
+  border-radius:var(--radius); font-family:'Syne',sans-serif; font-size:15px; font-weight:700;
+  cursor:pointer; transition:opacity .15s; margin:0 6px; }
+.result-btn:hover { opacity:.88; }
+.result-btn.secondary { background:var(--surface2); color:var(--text); border:1.5px solid var(--border); }
+
+/* ── DEATH SCREEN ── */
+#screen-death { padding:60px 0; text-align:center; }
+.death-emoji { font-size:72px; margin-bottom:20px; }
+.death-title { font-size:32px; font-weight:800; margin-bottom:10px; color:var(--wrong); }
+.death-sub { font-size:15px; color:var(--muted); margin-bottom:12px; line-height:1.6; }
+.death-hint { background:rgba(248,113,113,.08); border:1px solid rgba(248,113,113,.2);
+  border-radius:10px; padding:16px 20px; margin:20px 0 32px;
+  font-size:13px; color:var(--text); line-height:1.7; text-align:left;
+  font-family:'DM Mono',monospace; }
+.death-hint strong { color:var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- ══ HOME ══ -->
+<div class="screen active" id="screen-home">
+<div class="container">
+  <div style="padding-top:48px; text-align:center; margin-bottom:40px;">
+    <div class="game-title">Boss<em>Battle</em></div>
+    <div class="game-subtitle">Samfundsfag C — Besejr alle 3 bosser for at bestå</div>
+  </div>
+
+  <div class="boss-select" id="boss-select">
+    <button class="boss-btn" id="btn-boss-0" onclick="startBoss(0)">
+      <div class="boss-emoji">🧠</div>
+      <div class="boss-info">
+        <div class="boss-name">Boss 1: Identitetsmesteren</div>
+        <div class="boss-topics">Socialisering · Honneth · Goffman · Giddens · Ziehe · Beck</div>
+      </div>
+      <div class="boss-status" id="status-0">► Spil</div>
+    </button>
+    <button class="boss-btn locked" id="btn-boss-1" onclick="startBoss(1)">
+      <div class="boss-emoji">🏛️</div>
+      <div class="boss-info">
+        <div class="boss-name">Boss 2: Demokratikongen</div>
+        <div class="boss-topics">Easton · Demokrati · Parlamentarisme · Downs · Molin · EU</div>
+      </div>
+      <div class="boss-status" id="status-1">🔒 Lås op ved at slå Boss 1</div>
+    </button>
+    <button class="boss-btn locked" id="btn-boss-2" onclick="startBoss(2)">
+      <div class="boss-emoji">💰</div>
+      <div class="boss-info">
+        <div class="boss-name">Boss 3: Økonomikolossen</div>
+        <div class="boss-topics">BNP · Konjunktur · Finans- og pengepolitik · Flexicurity</div>
+      </div>
+      <div class="boss-status" id="status-2">🔒 Lås op ved at slå Boss 2</div>
+    </button>
+  </div>
+
+  <div class="home-tip">
+    <strong>Sådan virker det:</strong> Hvert rigtigt svar giver bossen skade. 3 forkerte svar = du mister kampen.
+    Slå bossen med 5 rigtige i træk for at afslutte hurtigere. Du har én <strong>50/50 lifeline</strong> per boss.
+  </div>
+</div>
+</div>
+
+<!-- ══ BATTLE ══ -->
+<div class="screen" id="screen-battle">
+<div class="container">
+  <div class="battle-header">
+    <button class="back-btn" onclick="goHome()">← Menu</button>
+    <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);" id="battle-label"></div>
+  </div>
+
+  <div class="spinner-wrap" id="battle-spinner">
+    <div class="spinner"></div>
+    <div style="font-size:15px;font-weight:600;">Bossen forbereder sig...</div>
+    <div style="font-size:13px;color:var(--muted);font-family:'DM Mono',monospace;">Genererer spørgsmål fra dit pensum</div>
+  </div>
+
+  <div id="battle-content" style="display:none">
+    <!-- Boss HP -->
+    <div class="boss-arena">
+      <div class="boss-arena-top">
+        <div class="boss-avatar" id="boss-avatar"></div>
+        <div class="boss-arena-info">
+          <div class="boss-arena-name" id="boss-arena-name"></div>
+          <div class="boss-arena-sub" id="boss-arena-sub"></div>
+        </div>
+      </div>
+      <div class="hp-bar-wrap">
+        <div class="hp-label"><span>HP</span><span id="hp-text"></span></div>
+        <div class="hp-bar"><div class="hp-fill" id="hp-fill"></div></div>
+      </div>
+    </div>
+
+    <!-- Player lives -->
+    <div class="player-lives">
+      <span class="lives-label">Liv:</span>
+      <span class="life" id="life-0">❤️</span>
+      <span class="life" id="life-1">❤️</span>
+      <span class="life" id="life-2">❤️</span>
+      <span style="flex:1"></span>
+      <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">3 forkerte = game over</span>
+    </div>
+
+    <!-- Streak -->
+    <div class="streak-bar">
+      <span style="margin-right:4px;">Streak:</span>
+      <div class="streak-dot" id="sd0"></div>
+      <div class="streak-dot" id="sd1"></div>
+      <div class="streak-dot" id="sd2"></div>
+      <div class="streak-dot" id="sd3"></div>
+      <div class="streak-dot" id="sd4"></div>
+      <span style="margin-left:8px;color:var(--accent);" id="streak-label"></span>
+    </div>
+
+    <!-- Lifeline -->
+    <div class="lifeline-row">
+      <span class="lifeline-label">Lifelines:</span>
+      <button class="lifeline-btn" id="btn-5050" onclick="use5050()">⚡ 50/50</button>
+      <button class="lifeline-btn" id="btn-hint" onclick="useHint()">💡 Hint</button>
+    </div>
+
+    <!-- Question -->
+    <div class="q-card" id="q-card">
+      <div class="q-round" id="q-round"></div>
+      <div class="q-text" id="q-text"></div>
+      <div class="options" id="q-options"></div>
+      <div class="expl" id="q-expl"></div>
+    </div>
+
+    <button class="continue-btn" id="continue-btn" onclick="nextQuestion()">Fortsæt →</button>
+  </div>
+</div>
+</div>
+
+<!-- ══ RESULT ══ -->
+<div class="screen" id="screen-result">
+<div class="container">
+  <div class="result-emoji" id="result-emoji"></div>
+  <div class="result-title" id="result-title"></div>
+  <div class="result-sub" id="result-sub"></div>
+  <div class="result-stats">
+    <div class="stat-box"><div class="stat-num" id="stat-hits"></div><div class="stat-label">Hits på bossen</div></div>
+    <div class="stat-box"><div class="stat-num" id="stat-acc"></div><div class="stat-label">Nøjagtighed</div></div>
+    <div class="stat-box"><div class="stat-num" id="stat-streak"></div><div class="stat-label">Bedste streak</div></div>
+  </div>
+  <button class="result-btn" onclick="goHome()">← Vælg boss</button>
+  <button class="result-btn secondary" id="retry-btn" onclick="retryBoss()">🔁 Prøv igen</button>
+</div>
+</div>
+
+<!-- ══ DEATH ══ -->
+<div class="screen" id="screen-death">
+<div class="container">
+  <div class="death-emoji">💀</div>
+  <div class="death-title">Du blev besejret!</div>
+  <div class="death-sub" id="death-sub"></div>
+  <div class="death-hint" id="death-hint"></div>
+  <button class="result-btn" onclick="retryBoss()" style="margin-bottom:12px;">🔁 Prøv igen</button><br>
+  <button class="result-btn secondary" onclick="goHome()">← Menu</button>
+</div>
+</div>
+
+<script>
+// ══ BOSS DEFINITIONS ══
+const BOSSES = [
+  {
+    id: 0,
+    name: 'Identitetsmesteren',
+    emoji: '🧠',
+    sub: 'Socialisation & Identitetsdannelse',
+    hp: 10,
+    topic: `Samfundsfag C emnet "Socialisation og Identitetsdannelse". Nøglebegreber:
+- Socialisering, normer, internalisering
+- Primær/sekundær/dobbeltsocialisering
+- Sanktioner og social kontrol (formel/uformel)
+- Identitetens 4 niveauer (personlig, social, kulturel, kollektiv)
+- Axel Honneths 3 anerkendelsessfærer (privatsfæren, retslig sfære, solidarisk sfære)
+- Familietyper: autoritær, demokratisk, laissez-faire
+- Goffmans teatermetafor: face, frontstage, backstage, impression management
+- Sociale medier og identitet
+- Traditionelt/moderne/senmoderne samfund
+- Thomas Ziehe: kulturel frisættelse, subjektivisering, ontologisering, potensering
+- Anthony Giddens: aftraditionalisering, individualisering, det rene forhold, øget refleksivitet, ontologisk usikkerhed
+- Ulrich Beck: valgbiografi, institutionaliseret individualisering, risikosamfund
+- Svend Brinkmann: kritik af selvrealiseringskultur
+- Mistrivsel blandt unge`
+  },
+  {
+    id: 1,
+    name: 'Demokratikongen',
+    emoji: '🏛️',
+    sub: 'Politik i Danmark',
+    hp: 10,
+    topic: `Samfundsfag C emnet "Politik i Danmark". Nøglebegreber:
+- Eastons definition af politik: autoritativ fordeling af værdier
+- Direkte vs. indirekte (repræsentativt) demokrati
+- Konkurrencedemokrati (Alf Ross) vs. deltagelsesdemokrati (Hal Koch)
+- Eastons model: input, politisk system, output, feedback
+- Magtens 3-deling + den 4. statsmagt (medierne)
+- Positiv og negativ parlamentarisme
+- Den parlamentariske styringskæde
+- EU, FN, multinationale selskaber, WTO
+- Rettigheder og pligter
+- Statsborger, medborger, modborger
+- Downs model: stemmemaksimering, medianvælger
+- Molins model: stemmemaksimering vs. policyimplementering vs. regeringsdeltagelse`
+  },
+  {
+    id: 2,
+    name: 'Økonomikolossen',
+    emoji: '💰',
+    sub: 'Økonomi og Økonomisk Politik',
+    hp: 10,
+    topic: `Samfundsfag C emnet "Økonomi og Økonomisk Politik". Nøglebegreber:
+- De 6 økonomiske mål (vækst, lav ledighed, lav inflation, betalingsbalance, budget, bæredygtighed)
+- BNP og produktivitet
+- Typer af arbejdsløshed: konjunktur, strukturel, friktions, sæson
+- Inflation: demand-pull, cost-push, importeret
+- Betalingsbalancen
+- Statens budget og statsgæld
+- Det økonomiske kredsløb (husholdninger, virksomheder, offentlige, udland)
+- Høj- og lavkonjunktur
+- Finanspolitik: ekspansiv og kontraktiv, crowding-out
+- Pengepolitik: ekspansiv og kontraktiv, fastkurspolitik, ECB
+- Strukturpolitik: stramnings- og opkvalificeringsstrategi
+- Flexicurity-modellen: fleksibilitet, sikkerhed, aktiv arbejdsmarkedspolitik`
+  }
+];
+
+// ══ GAME STATE ══
+let G = {
+  currentBoss: null,
+  questions: [],
+  qIdx: 0,
+  bossHP: 0,
+  bossMaxHP: 10,
+  lives: 3,
+  streak: 0,
+  bestStreak: 0,
+  totalAnswered: 0,
+  totalCorrect: 0,
+  cleared: [false, false, false],
+  lifeline5050: true,
+  lifelineHint: true,
+  lastWrongConcept: ''
+};
+
+// ══ SCREENS ══
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function goHome() {
+  updateHomeButtons();
+  show('home');
+}
+
+function updateHomeButtons() {
+  BOSSES.forEach((b, i) => {
+    const btn = document.getElementById('btn-boss-' + i);
+    const status = document.getElementById('status-' + i);
+    if (G.cleared[i]) {
+      btn.classList.add('cleared');
+      btn.classList.remove('locked');
+      status.textContent = '✓ Besejret';
+    } else if (i === 0 || G.cleared[i - 1]) {
+      btn.classList.remove('locked', 'cleared');
+      status.textContent = '► Spil';
+    }
+  });
+}
+
+// ══ START BOSS ══
+async function startBoss(idx) {
+  if (idx > 0 && !G.cleared[idx - 1]) return;
+  G.currentBoss = idx;
+  G.bossHP = BOSSES[idx].hp;
+  G.bossMaxHP = BOSSES[idx].hp;
+  G.lives = 3;
+  G.streak = 0;
+  G.bestStreak = 0;
+  G.totalAnswered = 0;
+  G.totalCorrect = 0;
+  G.lifeline5050 = true;
+  G.lifelineHint = true;
+  G.questions = [];
+  G.qIdx = 0;
+
+  show('battle');
+  document.getElementById('battle-spinner').style.display = 'flex';
+  document.getElementById('battle-content').style.display = 'none';
+
+  const boss = BOSSES[idx];
+  document.getElementById('battle-label').textContent = `Boss ${idx + 1} / 3`;
+
+  try {
+    const qs = await fetchQuestions(boss);
+    G.questions = qs;
+    document.getElementById('battle-spinner').style.display = 'none';
+    document.getElementById('battle-content').style.display = 'block';
+    setupBossUI();
+    renderQuestion();
+  } catch(e) {
+    document.getElementById('battle-spinner').innerHTML = `<div style="color:var(--wrong);font-family:'DM Mono',monospace;font-size:13px;padding:20px;">Fejl: ${e.message}</div>`;
+  }
+}
+
+async function fetchQuestions(boss) {
+  const prompt = `Du er en spiludvikler der laver et quiz-spil om ${boss.topic}
+
+Lav 20 multiple choice spørgsmål til en dansk gymnasieelev på C-niveau.
+Bland nemme, mellemsvære og svære spørgsmål.
+Spørgsmål skal teste forståelse — ikke bare hukommelse.
+Inkluder gerne "hvad ville X teoretiker sige om..." og "hvad er forskellen på...".
+
+RETURNER KUN JSON:
+{"questions":[{"question":"...","options":["A","B","C","D"],"correct":0,"explanation":"Kort forklaring på 1-2 sætninger.","concept":"Det begreb/teori spørgsmålet tester"}]}`;
+
+  const res = await fetch('/api/claude', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages: [{ role: 'user', content: prompt }] })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || JSON.stringify(data));
+  const raw = (data.content || []).map(i => i.text || '').join('');
+  const s = raw.indexOf('{'), e = raw.lastIndexOf('}');
+  if (s === -1) throw new Error('Ingen JSON i svar');
+  return JSON.parse(raw.slice(s, e + 1)).questions;
+}
+
+function setupBossUI() {
+  const boss = BOSSES[G.currentBoss];
+  document.getElementById('boss-avatar').textContent = boss.emoji;
+  document.getElementById('boss-arena-name').textContent = boss.name;
+  document.getElementById('boss-arena-sub').textContent = boss.sub;
+  updateHP();
+  updateLives();
+  updateStreak();
+  document.getElementById('btn-5050').disabled = false;
+  document.getElementById('btn-hint').disabled = false;
+  document.getElementById('continue-btn').classList.remove('show');
+}
+
+function updateHP() {
+  const pct = (G.bossHP / G.bossMaxHP) * 100;
+  const fill = document.getElementById('hp-fill');
+  fill.style.width = pct + '%';
+  fill.style.background = pct > 60 ? 'var(--hp-green)' : pct > 30 ? 'var(--hp-yellow)' : 'var(--hp-red)';
+  document.getElementById('hp-text').textContent = `${G.bossHP} / ${G.bossMaxHP}`;
+}
+
+function updateLives() {
+  for (let i = 0; i < 3; i++) {
+    document.getElementById('life-' + i).classList.toggle('lost', i >= G.lives);
+  }
+}
+
+function updateStreak() {
+  for (let i = 0; i < 5; i++) {
+    document.getElementById('sd' + i).classList.toggle('hit', i < G.streak);
+  }
+  document.getElementById('streak-label').textContent = G.streak >= 3 ? `🔥 ${G.streak} i træk!` : '';
+}
+
+// ══ QUESTION RENDERING ══
+function renderQuestion() {
+  if (G.qIdx >= G.questions.length) {
+    // Ran out — fetch more
+    fetchMoreAndContinue();
+    return;
+  }
+  const q = G.questions[G.qIdx];
+  document.getElementById('q-round').textContent = `Spørgsmål ${G.totalAnswered + 1} · Boss HP: ${G.bossHP}/${G.bossMaxHP}`;
+  document.getElementById('q-text').textContent = q.question;
+  document.getElementById('q-expl').classList.remove('show');
+  document.getElementById('continue-btn').classList.remove('show');
+
+  const L = ['A', 'B', 'C', 'D'];
+  document.getElementById('q-options').innerHTML = q.options.map((o, i) => `
+    <button class="option" onclick="pickAnswer(${i})" id="opt${i}">
+      <span class="opt-letter">${L[i]}</span>${o}
+    </button>`).join('');
+}
+
+async function fetchMoreAndContinue() {
+  document.getElementById('q-text').textContent = 'Henter flere spørgsmål...';
+  document.getElementById('q-options').innerHTML = '<div style="color:var(--muted);font-family:DM Mono,monospace;font-size:13px;padding:10px 0;">⟳ Genererer...</div>';
+  try {
+    const more = await fetchQuestions(BOSSES[G.currentBoss]);
+    G.questions = G.questions.concat(more);
+    renderQuestion();
+  } catch(e) {
+    document.getElementById('q-text').textContent = 'Fejl ved hentning. Prøv igen.';
+  }
+}
+
+// ══ ANSWER LOGIC ══
+function pickAnswer(idx) {
+  const q = G.questions[G.qIdx];
+  G.totalAnswered++;
+  const correct = idx === q.correct;
+
+  // Disable all options
+  for (let i = 0; i < q.options.length; i++) {
+    const btn = document.getElementById('opt' + i);
+    if (!btn) continue;
+    btn.disabled = true;
+    if (i === q.correct) btn.classList.add('correct');
+    else if (i === idx) btn.classList.add('wrong');
+  }
+
+  document.getElementById('q-expl').textContent = q.explanation;
+  document.getElementById('q-expl').classList.add('show');
+  document.getElementById('continue-btn').classList.add('show');
+
+  if (correct) {
+    G.totalCorrect++;
+    G.streak++;
+    if (G.streak > G.bestStreak) G.bestStreak = G.streak;
+    G.bossHP = Math.max(0, G.bossHP - 1);
+    updateHP();
+    updateStreak();
+    showHitEffect('💥', 'rgba(74,222,128,0.15)');
+    if (G.bossHP <= 0) {
+      setTimeout(() => bossDefeated(), 800);
+      return;
+    }
+  } else {
+    G.lastWrongConcept = q.concept || '';
+    G.streak = 0;
+    G.lives--;
+    updateLives();
+    updateStreak();
+    showHitEffect('💔', 'rgba(248,113,113,0.15)');
+    if (G.lives <= 0) {
+      setTimeout(() => playerDied(), 800);
+      return;
+    }
+  }
+  G.qIdx++;
+}
+
+function nextQuestion() {
+  document.getElementById('continue-btn').classList.remove('show');
+  document.getElementById('q-expl').classList.remove('show');
+  renderQuestion();
+}
+
+// ══ LIFELINES ══
+function use5050() {
+  if (!G.lifeline5050) return;
+  G.lifeline5050 = false;
+  document.getElementById('btn-5050').disabled = true;
+  const q = G.questions[G.qIdx];
+  const wrong = q.options.map((_, i) => i).filter(i => i !== q.correct);
+  // Hide 2 wrong options
+  const toHide = wrong.sort(() => Math.random() - .5).slice(0, 2);
+  toHide.forEach(i => {
+    const btn = document.getElementById('opt' + i);
+    if (btn) { btn.style.opacity = '.2'; btn.disabled = true; }
+  });
+}
+
+function useHint() {
+  if (!G.lifelineHint) return;
+  G.lifelineHint = false;
+  document.getElementById('btn-hint').disabled = true;
+  const q = G.questions[G.qIdx];
+  const expl = document.getElementById('q-expl');
+  expl.textContent = '💡 Hint: ' + (q.explanation || q.concept || 'Tænk over de vigtigste begreber i dette emne.');
+  expl.classList.add('show');
+}
+
+// ══ EFFECTS ══
+function showHitEffect(emoji, flashColor) {
+  const el = document.createElement('div');
+  el.className = 'hit-effect';
+  el.textContent = emoji;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 700);
+
+  const flash = document.createElement('div');
+  flash.className = 'screen-flash';
+  flash.style.background = flashColor;
+  document.body.appendChild(flash);
+  setTimeout(() => flash.remove(), 400);
+}
+
+// ══ BOSS DEFEATED ══
+function bossDefeated() {
+  G.cleared[G.currentBoss] = true;
+  const acc = Math.round((G.totalCorrect / G.totalAnswered) * 100);
+  const boss = BOSSES[G.currentBoss];
+
+  document.getElementById('result-emoji').textContent = '🏆';
+  document.getElementById('result-title').textContent = `${boss.name} besejret!`;
+  document.getElementById('result-sub').textContent =
+    G.currentBoss < 2
+      ? `Godt klaret! Boss ${G.currentBoss + 2} er nu låst op.`
+      : '🎉 Du har besejret alle 3 bosser! Du er klar til eksamen!';
+  document.getElementById('stat-hits').textContent = G.totalCorrect;
+  document.getElementById('stat-acc').textContent = acc + '%';
+  document.getElementById('stat-streak').textContent = G.bestStreak;
+  document.getElementById('retry-btn').onclick = () => retryBoss();
+  updateHomeButtons();
+  show('result');
+}
+
+// ══ PLAYER DIED ══
+function playerDied() {
+  const boss = BOSSES[G.currentBoss];
+  document.getElementById('death-sub').textContent =
+    `Bossen "${boss.name}" havde stadig ${G.bossHP} HP tilbage. Du svarede forkert 3 gange.`;
+
+  const concept = G.lastWrongConcept;
+  document.getElementById('death-hint').innerHTML = concept
+    ? `<strong>Gennemgå:</strong> "${concept}" — det var her det gik galt. Brug resumé eller flashcards på StudyForge til at læse det igennem, og prøv igen.`
+    : `<strong>Tip:</strong> Gå tilbage til StudyForge og brug Resumé eller Flashcards til at genopfriske emnet, så prøv igen.`;
+
+  show('death');
+}
+
+function retryBoss() {
+  startBoss(G.currentBoss);
+}
+
+// ── Init ──
+updateHomeButtons();
+</script>
+</body>
+</html>
